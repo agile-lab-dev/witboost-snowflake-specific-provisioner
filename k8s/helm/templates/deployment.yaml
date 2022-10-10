@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ .Values.name }}
+  name: {{ .Values.name }}
+  namespace: {{ .Values.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+        actorSystemName: {{ .Values.name }}
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      volumes:
+        - name: application-conf
+          configMap:
+            name: application.conf
+            defaultMode: 420
+      containers:
+        - name: {{ .Values.name }}
+          image: {{ .Values.imageName }}:{{ .Values.version }}
+          command: ["bin/datamesh-specificprovisioner"]
+          args: ["-Dconfig.file=etc/application.conf", "-Dconfig.override_with_env_vars=true"]
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+#          Removing readiness and liveliness because there's no such endpoint right now.
+#          To be fixed, totally a bad practice, but this is a mock.
+#          readinessProbe:
+#            httpGet:
+#              path: /ready
+#              port: management
+#            periodSeconds: 10
+#            failureThreshold: 5
+#            initialDelaySeconds: 30
+#          livenessProbe:
+#            httpGet:
+#              path: "/alive"
+#              port: management
+#            periodSeconds: 10
+#            failureThreshold: 5
+#            initialDelaySeconds: 30
+          ports:
+            - name: management
+              containerPort: 8558
+              protocol: TCP
+            - name: http
+              containerPort: 8093
+              protocol: TCP
+          securityContext:
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - name: application-conf
+              mountPath: /opt/docker/etc

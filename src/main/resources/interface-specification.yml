@@ -1,0 +1,266 @@
+openapi: 3.0.3
+info:
+  title: Specific Provisioner Micro Service
+  description: 'This is the microservice responsible to coordinate all the provisioning tasks for managing a data product'
+  version: '{{version}}'
+servers:
+  - url: /datamesh.specificprovisioner/{{version}}
+tags:
+  - name: SpecificProvisioner
+    description: All the provisioning related operations
+paths:
+  /provision:
+    post:
+      tags:
+        - SpecificProvisioner
+      summary: Deploy a data product starting from its descriptor
+      operationId: provision
+      requestBody:
+        description: A provisioning request descriptor wrapped as a string into a simple object
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvisioningRequest'
+        required: true
+      responses:
+        200:
+          description: It synchronously returns the request result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvisioningStatus'
+        202:
+          description: If successful returns a provisioning deployment task token that can be used for polling the request status
+          content:
+            application/json:
+              schema:
+                type: string
+        400:
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        500:
+          description: System problem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemError'
+  /provision/{token}/status:
+    get:
+      tags:
+        - SpecificProvisioner
+      summary: Get the status for a provisioning request
+      operationId: getStatus
+      parameters:
+        - name: token
+          in: path
+          description: token that identifies the request
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: The request status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProvisioningStatus"
+        400:
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        500:
+          description: System problem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemError'
+  /validate:
+    post:
+      tags:
+        - SpecificProvisioner
+      summary: Validate a provisioning request
+      operationId: validate
+      requestBody:
+        description: A provisioning request descriptor wrapped as a string into a simple object
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvisioningRequest'
+        required: true
+      responses:
+        200:
+          description: It synchronously returns a specific reply containing the validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+        500:
+          description: System problem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemError'
+  /unprovision:
+    post:
+      tags:
+        - SpecificProvisioner
+      summary: Undeploy a data product starting from its descriptor
+      operationId: unprovision
+      requestBody:
+        description: A provisioning request descriptor wrapped as a string into a simple object
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvisioningRequest'
+        required: true
+      responses:
+        200:
+          description: It synchronously returns the request result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvisioningStatus'
+        202:
+          description: If successful returns a provisioning deployment task token that can be used for polling the request status
+          content:
+            application/json:
+              schema:
+                type: string
+        400:
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        500:
+          description: System problem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemError'
+  /updateacl:
+    post:
+      tags:
+        - SpecificProvisioner
+      summary: Request the access to a specific provisioner component
+      operationId: updateacl
+      requestBody:
+        description: An access request object
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAclRequest'
+        required: true
+      responses:
+        200:
+          description: It synchronously returns the access request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvisioningStatus'
+        202:
+          description: It synchronously returns the access request response
+          content:
+            application/json:
+              schema:
+                type: string
+        400:
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        500:
+          description: System problem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemError'
+components:
+  schemas:
+    UpdateAclRequest:
+      required:
+        - acl
+        - provisionInfo
+      type: object
+      properties:
+        acl:
+          $ref: '#/components/schemas/Acl'
+        provisionInfo:
+          $ref: '#/components/schemas/ProvisionInfo'
+    DescriptorKind:
+      type: string
+      enum: [ DATAPRODUCT_DESCRIPTOR, COMPONENT_DESCRIPTOR, DATAPRODUCT_DESCRIPTOR_WITH_RESULTS ]
+    ProvisioningRequest:
+      required:
+        - descriptorKind
+        - descriptor
+      type: object
+      properties:
+        descriptorKind:
+          $ref: '#/components/schemas/DescriptorKind'
+        descriptor:
+          type: string
+          description: A provisioning request in yaml format
+    ProvisioningStatus:
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ RUNNING, COMPLETED, FAILED ]
+        result:
+          type: string
+    ValidationResult:
+      required:
+        - valid
+      type: object
+      properties:
+        valid:
+          type: boolean
+        error:
+          $ref: '#/components/schemas/ValidationError'
+    ValidationError:
+      required:
+        - errors
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: string
+    Acl:
+      required:
+        - users
+        - groups
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            type: string
+        groups:
+          type: array
+          items:
+            type: string
+    ProvisionInfo:
+      required:
+        - request
+      type: object
+      properties:
+        request:
+          type: string
+        result:
+          type: string
+    SystemError:
+      required:
+        - error
+      type: object
+      properties:
+        error:
+          type: string
