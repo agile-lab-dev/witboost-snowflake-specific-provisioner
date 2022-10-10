@@ -1,4 +1,4 @@
-package it.agilelab.datamesh.specificprovisioner.system
+package it.agilelab.datamesh.snowflakespecificprovisioner.system
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
 

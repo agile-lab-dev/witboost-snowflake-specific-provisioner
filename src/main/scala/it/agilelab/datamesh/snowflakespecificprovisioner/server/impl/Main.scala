@@ -1,4 +1,4 @@
-package it.agilelab.datamesh.specificprovisioner.server.impl
+package it.agilelab.datamesh.snowflakespecificprovisioner.server.impl
 
 import akka.actor
 import akka.actor.typed.ActorSystem
@@ -7,10 +7,13 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives.complete
 import akka.http.scaladsl.server.directives.{Credentials, SecurityDirectives}
 import buildinfo.BuildInfo
-import it.agilelab.datamesh.specificprovisioner.api.intepreter.{ProvisionerApiMarshallerImpl, ProvisionerApiServiceImpl}
-import it.agilelab.datamesh.specificprovisioner.api.{SpecificProvisionerApi, SpecificProvisionerApiService}
-import it.agilelab.datamesh.specificprovisioner.server.Controller
-import it.agilelab.datamesh.specificprovisioner.system.ApplicationConfiguration.httpPort
+import it.agilelab.datamesh.snowflakespecificprovisioner.api.intepreter.{
+  ProvisionerApiMarshallerImpl,
+  ProvisionerApiServiceImpl
+}
+import it.agilelab.datamesh.snowflakespecificprovisioner.api.{SpecificProvisionerApi, SpecificProvisionerApiService}
+import it.agilelab.datamesh.snowflakespecificprovisioner.server.Controller
+import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.httpPort
 
 import scala.jdk.CollectionConverters._
 

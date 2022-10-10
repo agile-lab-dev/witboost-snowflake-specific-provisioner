@@ -1,12 +1,12 @@
-package it.agilelab.datamesh.specificprovisioner.api.intepreter
+package it.agilelab.datamesh.snowflakespecificprovisioner.api.intepreter
 
 import akka.http.scaladsl.marshalling.ToEntityMarshaller
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
-import it.agilelab.datamesh.specificprovisioner.api.SpecificProvisionerApiMarshaller
-import it.agilelab.datamesh.specificprovisioner.model._
+import it.agilelab.datamesh.snowflakespecificprovisioner.api.SpecificProvisionerApiMarshaller
+import it.agilelab.datamesh.snowflakespecificprovisioner.model._
 
 class ProvisionerApiMarshallerImpl extends SpecificProvisionerApiMarshaller {
 

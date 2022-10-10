@@ -20,7 +20,7 @@ To set permanently the env variable `WITBOOST_MESH_TOKEN`, add the export comman
 - open the project in IntelliJ
   - accept the "load sbt project" notification on the bottom right corner
   - click on "reload all sbt project" button on the top right window
-  - in the package it.agilelab.datamesh.specificprovisioner.server
+  - in the package it.agilelab.datamesh.snowflakespecificprovisioner.server
     - run the server Main class (by IntelliJ) (see # Run the app)
     - verify that some logs are printed on the Main window in IntelliJ
     
@@ -38,4 +38,4 @@ run
 ```
 
 ### API UI from browser
-- When the app is running use the following link to access the API [swagger](http://127.0.0.1:8093/datamesh.specificprovisioner/0.0/swagger/docs/index.html)
+- When the app is running use the following link to access the API [swagger](http://127.0.0.1:8093/datamesh.snowflakespecificprovisioner/0.0/swagger/docs/index.html)

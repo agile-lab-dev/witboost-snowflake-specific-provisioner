@@ -102,6 +102,11 @@ object Dependencies {
     lazy val core      = namespace %% "scalatest" % scalatestVersion
   }
 
+  private[this] object snowflake {
+    lazy val namespace = "net.snowflake"
+    lazy val jdbc      = namespace % "snowflake-jdbc" % snowflakeJDBCVersion
+  }
+
   object Jars {
 
     lazy val overrides: Seq[ModuleID] = Seq(
@@ -136,6 +141,7 @@ object Dependencies {
       logback.classic              % Compile,
       openapi4j.operationValidator % Compile,
       h2database.jdbc              % Compile,
+      snowflake.jdbc               % Compile,
       scalatest.core               % Test
     )
 

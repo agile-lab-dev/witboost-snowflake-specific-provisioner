@@ -18,4 +18,5 @@ object Versions {
   lazy val scalaLogging             = "3.9.4"
   lazy val logbackVersion           = "1.2.11"
   lazy val scalatestVersion         = "3.2.11"
+  lazy val snowflakeJDBCVersion     = "3.13.23"
 }
