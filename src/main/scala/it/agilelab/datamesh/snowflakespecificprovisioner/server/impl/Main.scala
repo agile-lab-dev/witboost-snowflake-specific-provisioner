@@ -7,17 +7,19 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives.complete
 import akka.http.scaladsl.server.directives.{Credentials, SecurityDirectives}
 import buildinfo.BuildInfo
+import com.typesafe.scalalogging.LazyLogging
 import it.agilelab.datamesh.snowflakespecificprovisioner.api.intepreter.{
   ProvisionerApiMarshallerImpl,
   ProvisionerApiServiceImpl
 }
 import it.agilelab.datamesh.snowflakespecificprovisioner.api.{SpecificProvisionerApi, SpecificProvisionerApiService}
+import it.agilelab.datamesh.snowflakespecificprovisioner.s3.gateway.{S3Gateway, S3GatewayMock}
 import it.agilelab.datamesh.snowflakespecificprovisioner.server.Controller
-import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.httpPort
+import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.{httpPort, isMocked}
 
 import scala.jdk.CollectionConverters._
 
-object Main {
+object Main extends LazyLogging {
 
   def run(port: Int, impl: SpecificProvisionerApiService): ActorSystem[Nothing] = ActorSystem[Nothing](
     Behaviors.setup[Nothing] { context =>
@@ -33,16 +35,16 @@ object Main {
       val controller = new Controller(
         api,
         validationExceptionToRoute = Some { e =>
-          println(e)
+          logger.error("Error: ", e)
           val results = e.results()
           if (Option(results).isDefined) {
-            results.crumbs().asScala.foreach(crumb => println(crumb.crumb()))
+            results.crumbs().asScala.foreach(crumb => logger.info(crumb.crumb()))
             results.items().asScala.foreach { item =>
-              println(item.dataCrumbs())
-              println(item.dataJsonPointer())
-              println(item.schemaCrumbs())
-              println(item.message())
-              println(item.severity())
+              logger.info(item.dataCrumbs())
+              logger.info(item.dataJsonPointer())
+              logger.info(item.schemaCrumbs())
+              logger.info(item.message())
+              logger.info("Severity: ", item.severity.getValue)
             }
             val message = e.results().items().asScala.map(_.message()).mkString("\n")
             complete((400, message))
@@ -56,5 +58,17 @@ object Main {
     BuildInfo.name.replaceAll("""\.""", "-")
   )
 
-  def main(args: Array[String]): Unit = { val _ = run(httpPort, new ProvisionerApiServiceImpl()) }
+  @SuppressWarnings(Array("scalafix:DisableSyntax.throw"))
+  def clientAws: S3Gateway =
+    if (isMocked) { new S3GatewayMock }
+    else {
+      S3Gateway.apply match {
+        case Left(exception) =>
+          logger.error("Error: ", exception)
+          throw exception
+        case Right(value)    => value
+      }
+    }
+
+  def main(args: Array[String]): Unit = { val _ = run(httpPort, new ProvisionerApiServiceImpl(clientAws)) }
 }

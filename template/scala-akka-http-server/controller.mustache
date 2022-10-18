@@ -23,6 +23,8 @@ import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 import java.io.{BufferedWriter, File, FileOutputStream, FileWriter, StringWriter}
 import scala.collection.mutable
+import org.slf4j.MDC
+import java.util.UUID
 
 class Controller({{#apiInfo}}{{#apis}}{{#operations}}{{classVarName}}: {{classname}}{{^-last}}, {{/-last}}{{/operations}}{{/apis}}{{/apiInfo}}, validationExceptionToRoute: Option[ValidationException => Route] = None, interfaceFileSystemRoot: Option[String] = None)(implicit system: ActorSystem) {
 
@@ -106,10 +108,20 @@ class Controller({{#apiInfo}}{{#apis}}{{#operations}}{{classVarName}}: {{classna
            getFromResourceDirectory("swagger-ui") ~ getFromFile(tmpFile)
      }
 
+     def extractAndSetTraceId(request: HttpRequest): Unit = {
+            val traceId = request.headers
+              .find(h => h.name().equals("traceId"))
+              .map(_.value())
+              .getOrElse(UUID.randomUUID().toString)
+
+             MDC.put("traceId", traceId)
+           }
+
   lazy val routes: Route = getBuildInfo ~ swaggerRoute ~ pathPrefix("{{projectName}}" / interfaceVersion) {
     toStrictEntity(strictnessTimeout) {
       extractRequest {
         request =>
+          extractAndSetTraceId(request)
           validationFunction(request){
             {{#apiInfo}}{{#apis}}{{#operations}}{{classVarName}}.route {{^-last}} ~ {{/-last}}{{/operations}}{{/apis}}{{/apiInfo}}
         }

@@ -4,7 +4,7 @@ info:
   description: 'This is the microservice responsible to coordinate all the provisioning tasks for managing a data product'
   version: '{{version}}'
 servers:
-  - url: /datamesh.specificprovisioner/{{version}}
+  - url: /datamesh.snowflakespecificprovisioner/{{version}}
 tags:
   - name: SpecificProvisioner
     description: All the provisioning related operations

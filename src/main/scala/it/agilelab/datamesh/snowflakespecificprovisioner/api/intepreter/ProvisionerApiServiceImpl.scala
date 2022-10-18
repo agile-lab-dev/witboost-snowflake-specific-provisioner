@@ -3,11 +3,15 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.api.intepreter
 import akka.http.scaladsl.marshalling.ToEntityMarshaller
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
+import cats.implicits.toShow
+import com.typesafe.scalalogging.LazyLogging
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.{marshaller, unmarshaller}
 import it.agilelab.datamesh.snowflakespecificprovisioner.api.SpecificProvisionerApiService
 import it.agilelab.datamesh.snowflakespecificprovisioner.model._
+import it.agilelab.datamesh.snowflakespecificprovisioner.s3.gateway.S3Gateway
+import it.agilelab.datamesh.snowflakespecificprovisioner.s3.gateway.S3GatewayError._
 
-class ProvisionerApiServiceImpl extends SpecificProvisionerApiService {
+class ProvisionerApiServiceImpl(s3Client: S3Gateway) extends SpecificProvisionerApiService with LazyLogging {
 
   // Json String
   implicit val toEntityMarshallerJsonString: ToEntityMarshaller[String]       = marshaller[String]
@@ -34,7 +38,12 @@ class ProvisionerApiServiceImpl extends SpecificProvisionerApiService {
       toEntityMarshallerSystemError: ToEntityMarshaller[SystemError],
       toEntityMarshallerProvisioningStatus: ToEntityMarshaller[ProvisioningStatus],
       toEntityMarshallerValidationError: ToEntityMarshaller[ValidationError]
-  ): Route = provision202("\"OK\"")
+  ): Route = s3Client.createFolder("my-loop-bucket", "airflow") match {
+    case Left(value) =>
+      logger.error(value.show)
+      provision500(SystemError(value.getMessage))
+    case Right(_)    => provision202("OK")
+  }
 
   /** Code: 200, Message: It synchronously returns the request result, DataType: String
    *  Code: 400, Message: Invalid input, DataType: ValidationError

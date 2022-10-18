@@ -1,28 +1,15 @@
 package it.agilelab.datamesh.snowflakespecificprovisioner.system
 
-import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
+import com.typesafe.config.{Config, ConfigFactory}
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.annotation.tailrec
 
 object ApplicationConfiguration {
 
   val config: AtomicReference[Config] = new AtomicReference(ConfigFactory.load())
+  def httpPort: Int                   = config.get.getInt("specific-provisioner.http-port")
 
-  def reloadConfig(): String = config.synchronized {
-    @tailrec
-    def snip(): Unit = {
-      val oldConf = config.get
-      val newConf = {
-        ConfigFactory.invalidateCaches()
-        ConfigFactory.load()
-      }
-      if (!config.compareAndSet(oldConf, newConf)) snip()
-    }
-    snip()
-    config.get.getObject("specific-provisioner").render(ConfigRenderOptions.defaults())
-  }
-
-  def httpPort: Int = config.get.getInt("specific-provisioner.http-port")
-
+  def isMocked =
+    if (config.get.hasPath("specific-provisioner.is-mock")) config.get.getBoolean("specific-provisioner.is-mock")
+    else false
 }

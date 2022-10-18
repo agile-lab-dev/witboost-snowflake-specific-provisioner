@@ -3,8 +3,8 @@
 set -ex
 
 export VAULT_SKIP_VERIFY=true
-export NAME=mock-specific-provisioner
-export IMAGE_NAME=registry.gitlab.com/agilefactory/witboost.mesh/provisioning/witboost.mesh.provisioning.specificprovisioner
+export NAME=snowflake-specific-provisioner
+export IMAGE_NAME=registry.gitlab.com/agilefactory/witboost.mesh/provisioning/sandbox/witboost.mesh.provisioning.sandbox.snowflakespecificprovisioner
 export NAMESPACE=${NAME}
 
 # Check required vars
@@ -28,17 +28,24 @@ if [ ! -f "$APPLICATION_CONF" ]; then
   echo "$APPLICATION_CONF does not exist."; exit 1;
 fi
 kubectl create configmap application.conf --from-file=application.conf="$APPLICATION_CONF" -n "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create configmap logback.xml --from-file=logback.xml="logback.xml" -n "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
+# decrypt secrets
+HELM_SECRETS_DRIVER=vault helm secrets dec values.yaml
 
 # install/upgrade release
-helm upgrade --atomic --install -n ${NAMESPACE} --wait --timeout 120s --description "${COMMIT}" -f values.yaml mock-specific-provisioner ./helm \
+helm upgrade --atomic --install -n ${NAMESPACE} --wait --timeout 120s --description "${COMMIT}" -f values.yaml.dec ${NAME} ./helm \
 --set name="${NAME}" \
 --set imageName="${IMAGE_NAME}" \
 --set version="${VERSION}"
 
 upgrade_result=$?
 
+# rm unencrypted file
+rm values.yaml.dec
+
 # show deploy history
-helm history mock-specific-provisioner -n "${NAMESPACE}"
+helm history ${NAME} -n "${NAMESPACE}"
 
 # return helm upgrade status code
 exit $upgrade_result

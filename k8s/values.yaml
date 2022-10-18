@@ -3,3 +3,9 @@
 # Declare variables to be passed into your templates.
 
 imagePullPolicy: Always
+
+credentials:
+  awsAccessKeyId: !vault k8s/aws/aws_access_key_id#value
+  awsSecretKey: !vault k8s/aws/aws_secret_key#value
+  awsRegion: !vault k8s/aws/aws_region#value
+  awsSessionToken: !vault k8s/aws/aws_session_token#value

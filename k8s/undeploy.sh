@@ -4,5 +4,5 @@ source config
 
 NAMESPACE="${name}"
 
-helm uninstall mock-specific-provisioner -n "${NAMESPACE}"
+helm uninstall ${name} -n "${NAMESPACE}"
 kubectl delete namespace "$NAMESPACE"

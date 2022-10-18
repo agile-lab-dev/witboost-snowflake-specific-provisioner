@@ -15,39 +15,6 @@ object Dependencies {
     lazy val slf4j         = namespace                       %% "akka-slf4j"           % akkaVersion
   }
 
-  private[this] object graph {
-    lazy val namespace = "org.scala-graph"
-
-    lazy val core = (namespace %% "graph-core" % scalaGraphVersion).exclude("org.netbeans.api", "*")
-      .exclude("org.netbeans.modules", "*")
-  }
-
-  private[this] object retry {
-    lazy val namespace = "com.softwaremill.retry"
-    lazy val core      = namespace %% "retry" % retryVersion
-  }
-
-  private[this] object scalikeJDBC {
-    lazy val namespace = "org.scalikejdbc"
-    lazy val core      = namespace %% "scalikejdbc"                      % scalikeJDBCVersion
-    lazy val autoMacro = namespace %% "scalikejdbc-syntax-support-macro" % scalikeJDBCVersion
-  }
-
-  private[this] object flywaydb {
-    lazy val namespace = "org.flywaydb"
-    lazy val core      = namespace % "flyway-core" % flywayVersion
-  }
-
-  private[this] object h2database {
-    lazy val namespace = "com.h2database"
-    lazy val jdbc      = namespace % "h2" % h2Version
-  }
-
-  private[this] object postgres {
-    lazy val namespace = "org.postgresql"
-    lazy val jdbc      = namespace % "postgresql" % postgresqlVersion
-  }
-
   private[this] object circe {
     lazy val namespace = "io.circe"
     lazy val core      = namespace %% "circe-core"    % circeVersion
@@ -102,9 +69,20 @@ object Dependencies {
     lazy val core      = namespace %% "scalatest" % scalatestVersion
   }
 
+  private[this] object scalamock {
+    lazy val namespace = "org.scalamock"
+    lazy val core      = namespace %% "scalamock" % "5.2.0"
+  }
+
   private[this] object snowflake {
     lazy val namespace = "net.snowflake"
     lazy val jdbc      = namespace % "snowflake-jdbc" % snowflakeJDBCVersion
+  }
+
+  private[this] object awsS3Sdk {
+    lazy val namespace = "software.amazon.awssdk"
+    lazy val s3Core    = namespace % "s3"        % "2.17.285"
+    lazy val s3Control = namespace % "s3control" % "2.17.285"
   }
 
   object Jars {
@@ -125,24 +103,20 @@ object Dependencies {
       akka.http                    % Compile,
       akka.httpCirceJson           % Compile,
       akka.httpSprayJson           % Compile,
-      graph.core                   % Compile,
-      retry.core                   % Compile,
       circe.core                   % Compile,
       circe.generic                % Compile,
       circe.parser                 % Compile,
       circe.yaml                   % Compile,
-      scalikeJDBC.core             % Compile,
-      scalikeJDBC.autoMacro        % Compile,
-      flywaydb.core                % Compile,
-      postgres.jdbc                % Compile,
       commons.fileUpload           % Compile,
       mustache.mustache            % Compile,
       logging.scala                % Compile,
       logback.classic              % Compile,
       openapi4j.operationValidator % Compile,
-      h2database.jdbc              % Compile,
       snowflake.jdbc               % Compile,
-      scalatest.core               % Test
+      awsS3Sdk.s3Core              % Compile,
+      awsS3Sdk.s3Control           % Compile,
+      scalatest.core               % Test,
+      scalamock.core               % Test
     )
 
     lazy val client: Seq[ModuleID] = Seq(
