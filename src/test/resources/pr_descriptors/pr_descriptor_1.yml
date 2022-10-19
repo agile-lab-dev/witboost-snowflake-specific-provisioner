@@ -1,0 +1,45 @@
+dataProduct:
+  name: Marketing-Invoice-1
+  environment: dev
+  description: Dataproduct invoice
+  dataProductOwner: group:bigdata
+  dataProductOwnerDisplayName: Group BigData
+  domain: domain:marketing
+  kind: dataproduct
+  email: contact@example.com
+  version: 1.0.0
+  fullyQualifiedName: InvoiceDataProduct
+  displayName: Invoice
+  informationSLA: Info
+  maturity: Tactical
+  billing: {}
+  tags: []
+  id: domain:marketing.Marketing-Invoice-1.1
+  specific: {}
+  components:
+    - id: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1
+      name: Marketing-Invoice-S3-Ingestion-Data-1
+      fullyQualifiedName: Marketing Invoice S3 Ingestion Data
+      description: Marketing Invoice S3 Ingestion Data
+      kind: storage
+      owners:
+        - group:bigdata
+      infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0
+      useCaseTemplateId: urn:dmb:utm:template-id-1:1.0.0
+      dependsOn: [ ]
+      platform: CDP_AWS
+      technology: CDP_S3
+      storageType: SQL
+      tags: [ ]
+      specific:
+        warehouse: warehouse_test_1
+        database: database_test_1
+        schema: schema_test_1
+        tables:
+          - name: test
+            fields:
+              - name: id
+                type: int
+              - name: description
+                type: varchar(50)
+componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

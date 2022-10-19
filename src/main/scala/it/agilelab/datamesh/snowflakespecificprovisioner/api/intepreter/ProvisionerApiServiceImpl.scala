@@ -53,7 +53,7 @@ class ProvisionerApiServiceImpl(s3Client: S3Gateway) extends SpecificProvisioner
       contexts: Seq[(String, String)],
       toEntityMarshallerSystemError: ToEntityMarshaller[SystemError],
       toEntityMarshallerValidationResult: ToEntityMarshaller[ValidationResult]
-  ): Route = validate200(ValidationResult(true))
+  ): Route = validate200(ValidationResult(valid = true))
 
   /** Code: 200, Message: It synchronously returns the request result, DataType: ProvisioningStatus
    *  Code: 202, Message: If successful returns a provisioning deployment task token that can be used for polling the request status, DataType: String

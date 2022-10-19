@@ -1,0 +1,19 @@
+dataProduct:
+  name: Marketing-Invoice-1
+  environment: dev
+  description: Dataproduct invoice
+  dataProductOwner: group:bigdata
+  dataProductOwnerDisplayName: Group BigData
+  domain: domain:marketing
+  kind: dataproduct
+  email: contact@example.com
+  version: 1.0.0
+  fullyQualifiedName: InvoiceDataProduct
+  displayName: Invoice
+  informationSLA: Info
+  maturity: Tactical
+  billing: {}
+  tags: []
+  id: domain:marketing.Marketing-Invoice-1.1
+  specific: {}
+componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1
