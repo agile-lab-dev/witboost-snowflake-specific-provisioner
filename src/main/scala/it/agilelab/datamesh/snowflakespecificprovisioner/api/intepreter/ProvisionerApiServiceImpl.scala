@@ -3,19 +3,20 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.api.intepreter
 import akka.http.scaladsl.marshalling.ToEntityMarshaller
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
-import cats.implicits.toShow
+import cats.data.NonEmptyList
 import com.typesafe.scalalogging.LazyLogging
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.{marshaller, unmarshaller}
 import it.agilelab.datamesh.snowflakespecificprovisioner.api.SpecificProvisionerApiService
 import it.agilelab.datamesh.snowflakespecificprovisioner.model._
-import it.agilelab.datamesh.snowflakespecificprovisioner.s3.gateway.S3Gateway
-import it.agilelab.datamesh.snowflakespecificprovisioner.s3.gateway.S3GatewayError._
+import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.{SnowflakeError, SnowflakeManager}
 
-class ProvisionerApiServiceImpl(s3Client: S3Gateway) extends SpecificProvisionerApiService with LazyLogging {
+class ProvisionerApiServiceImpl() extends SpecificProvisionerApiService with LazyLogging {
 
   // Json String
   implicit val toEntityMarshallerJsonString: ToEntityMarshaller[String]       = marshaller[String]
   implicit val toEntityUnmarshallerJsonString: FromEntityUnmarshaller[String] = unmarshaller[String]
+
+  val snowflakeManager = new SnowflakeManager
 
   /** Code: 200, Message: The request status, DataType: Status
    *  Code: 400, Message: Invalid input, DataType: ValidationError
@@ -26,7 +27,7 @@ class ProvisionerApiServiceImpl(s3Client: S3Gateway) extends SpecificProvisioner
       toEntityMarshallerSystemError: ToEntityMarshaller[SystemError],
       toEntityMarshallerProvisioningStatus: ToEntityMarshaller[ProvisioningStatus],
       toEntityMarshallerValidationError: ToEntityMarshaller[ValidationError]
-  ): Route = getStatus200(ProvisioningStatus(ProvisioningStatusEnums.StatusEnum.COMPLETED, Some("Ok")))
+  ): Route = getStatus200(ProvisioningStatus(ProvisioningStatusEnums.StatusEnum.COMPLETED, "OK"))
 
   /** Code: 200, Message: It synchronously returns the request result, DataType: ProvisioningStatus
    *  Code: 202, Message: If successful returns a provisioning deployment task token that can be used for polling the request status, DataType: String
@@ -38,12 +39,7 @@ class ProvisionerApiServiceImpl(s3Client: S3Gateway) extends SpecificProvisioner
       toEntityMarshallerSystemError: ToEntityMarshaller[SystemError],
       toEntityMarshallerProvisioningStatus: ToEntityMarshaller[ProvisioningStatus],
       toEntityMarshallerValidationError: ToEntityMarshaller[ValidationError]
-  ): Route = s3Client.createFolder("my-loop-bucket", "airflow") match {
-    case Left(value) =>
-      logger.error(value.show)
-      provision500(SystemError(value.getMessage))
-    case Right(_)    => provision202("OK")
-  }
+  ): Route = provision202("\"OK\"")
 
   /** Code: 200, Message: It synchronously returns the request result, DataType: String
    *  Code: 400, Message: Invalid input, DataType: ValidationError
@@ -77,5 +73,19 @@ class ProvisionerApiServiceImpl(s3Client: S3Gateway) extends SpecificProvisioner
       toEntityMarshallerSystemError: ToEntityMarshaller[SystemError],
       toEntityMarshallerProvisioningStatus: ToEntityMarshaller[ProvisioningStatus],
       toEntityMarshallerValidationError: ToEntityMarshaller[ValidationError]
-  ): Route = updateacl202("OK")
+  ): Route = ProvisioningRequestDescriptor(updateAclRequest.provisionInfo.request)
+    .flatMap(descriptor => snowflakeManager.executeUpdateAcl(descriptor, updateAclRequest.refs)) match {
+    case Left(e: SnowflakeError)  =>
+      logger.error("System error: {}", e.errorMessage)
+      updateacl500(SystemError(e.errorMessage))
+    case Left(e: NonEmptyList[_]) =>
+      logger.error("Validation error: {}", e.toList)
+      updateacl400(ValidationError(e.toList.map(_.toString)))
+    case Right(_)                 =>
+      logger.info("OK")
+      updateacl202("OK")
+    case _                        =>
+      logger.error("Generic error")
+      updateacl500(SystemError("Generic error"))
+  }
 }

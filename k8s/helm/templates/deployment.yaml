@@ -64,14 +64,22 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: AWS_ACCESS_KEY_ID
-              value: {{ .Values.credentials.awsAccessKeyId }}
-            - name: AWS_SECRET_KEY
-              value: {{ .Values.credentials.awsSecretKey }}
-            - name: AWS_REGION
-              value: {{ .Values.credentials.awsRegion }}
-            - name: AWS_SESSION_TOKEN
-              value: {{ .Values.credentials.awsSessionToken }}
+            - name: SNOWFLAKE_USER
+              value: {{ .Values.snowflake.user }}
+            - name: SNOWFLAKE_PASSWORD
+              value: {{ .Values.snowflake.password }}
+            - name: SNOWFLAKE_ROLE
+              value: {{ .Values.snowflake.role }}
+            - name: SNOWFLAKE_ACCOUNT
+              value: {{ .Values.snowflake.account }}
+            - name: SNOWFLAKE_WAREHOUSE
+              value: {{ .Values.snowflake.warehouse }}
+            - name: SNOWFLAKE_DB
+              value: {{ .Values.snowflake.db }}
+            - name: JDBC_URL
+              value: {{ .Values.snowflake.jdbcUrl }}
+            - name: SNOWFLAKE_SCHEMA
+              value: {{ .Values.snowflake.schema }}
           volumeMounts:
           - name: application-conf
             mountPath: /opt/docker/etc/app-conf

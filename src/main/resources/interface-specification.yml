@@ -185,12 +185,14 @@ components:
   schemas:
     UpdateAclRequest:
       required:
-        - acl
+        - refs
         - provisionInfo
       type: object
       properties:
-        acl:
-          $ref: '#/components/schemas/Acl'
+        refs:
+          type: array
+          items:
+            type: string
         provisionInfo:
           $ref: '#/components/schemas/ProvisionInfo'
     DescriptorKind:
@@ -210,6 +212,7 @@ components:
     ProvisioningStatus:
       required:
         - status
+        - result
       properties:
         status:
           type: string
@@ -234,23 +237,10 @@ components:
           type: array
           items:
             type: string
-    Acl:
-      required:
-        - users
-        - groups
-      type: object
-      properties:
-        users:
-          type: array
-          items:
-            type: string
-        groups:
-          type: array
-          items:
-            type: string
     ProvisionInfo:
       required:
         - request
+        - result
       type: object
       properties:
         request:

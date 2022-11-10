@@ -33,6 +33,7 @@ dataProduct:
       tags: [ ]
       specific:
         warehouse: warehouse_test_1
+        tableName: test_table
         database: database_test_1
         schema: schema_test_1
         tables:

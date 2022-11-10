@@ -98,12 +98,6 @@ lazy val clientGenerated = project.in(file("client-generated")).settings(
   app.k8ty.sbt.gitlab.K8tyGitlabPlugin.gitlabProjectId := "34805714"
 ).enablePlugins(K8tyGitlabPlugin)
 
-lazy val awsIntegration = project.in(file("aws-integration")).settings(
-  name          := "datamesh.snowflakespecificprovisioner.aws.integration",
-  scalacOptions := Seq(),
-  libraryDependencies ++= Dependencies.Jars.`server`
-).setupBuildInfo
-
 lazy val root = (project in file(".")).settings(
   name                        := "datamesh.snowflakespecificprovisioner",
   Test / parallelExecution    := false,
@@ -122,5 +116,5 @@ lazy val root = (project in file(".")).settings(
   scalafixOnCompile           := true,
   semanticdbEnabled           := true,
   semanticdbVersion           := scalafixSemanticdb.revision
-).aggregate(clientGenerated).dependsOn(serverGenerated, awsIntegration).enablePlugins(JavaAppPackaging, MultiJvmPlugin)
+).aggregate(clientGenerated).dependsOn(serverGenerated).enablePlugins(JavaAppPackaging, MultiJvmPlugin)
   .configs(MultiJvm).setupBuildInfo

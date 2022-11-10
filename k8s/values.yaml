@@ -4,8 +4,12 @@
 
 imagePullPolicy: Always
 
-credentials:
-  awsAccessKeyId: !vault k8s/aws/aws_access_key_id#value
-  awsSecretKey: !vault k8s/aws/aws_secret_key#value
-  awsRegion: !vault k8s/aws/aws_region#value
-  awsSessionToken: !vault k8s/aws/aws_session_token#value
+snowflake:
+  user: !vault k8s/snowflake/snowflake_user#value
+  password: !vault k8s/snowflake/snowflake_password#value
+  role: !vault k8s/snowflake/snowflake_role#value
+  account: !vault k8s/snowflake/snowflake_account#value
+  warehouse: !vault k8s/snowflake/snowflake_warehouse#value
+  db: !vault k8s/snowflake/snowflake_db#value
+  jdbcUrl: !vault k8s/snowflake/snowflake_base_url#value
+  schema: !vault k8s/snowflake/snowflake_schema#value

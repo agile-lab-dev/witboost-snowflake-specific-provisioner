@@ -79,12 +79,6 @@ object Dependencies {
     lazy val jdbc      = namespace % "snowflake-jdbc" % snowflakeJDBCVersion
   }
 
-  private[this] object awsS3Sdk {
-    lazy val namespace = "software.amazon.awssdk"
-    lazy val s3Core    = namespace % "s3"        % "2.17.285"
-    lazy val s3Control = namespace % "s3control" % "2.17.285"
-  }
-
   object Jars {
 
     lazy val overrides: Seq[ModuleID] = Seq(
@@ -113,8 +107,6 @@ object Dependencies {
       logback.classic              % Compile,
       openapi4j.operationValidator % Compile,
       snowflake.jdbc               % Compile,
-      awsS3Sdk.s3Core              % Compile,
-      awsS3Sdk.s3Control           % Compile,
       scalatest.core               % Test,
       scalamock.core               % Test
     )

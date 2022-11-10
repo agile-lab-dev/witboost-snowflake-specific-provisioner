@@ -42,8 +42,6 @@ class ProvisionerApiMarshallerImpl extends SpecificProvisionerApiMarshaller {
   implicit override def toEntityMarshallerValidationResult: ToEntityMarshaller[ValidationResult] =
     marshaller[ValidationResult]
 
-  implicit val accessDecoder: Decoder[Acl] = deriveDecoder[Acl]
-
   implicit val deploymentDecoder: Decoder[ProvisionInfo] = deriveDecoder[ProvisionInfo]
 
   implicit val updateAclRequestDecoder: Decoder[UpdateAclRequest] = deriveDecoder[UpdateAclRequest]

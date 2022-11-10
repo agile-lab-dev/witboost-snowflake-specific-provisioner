@@ -13,9 +13,8 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.api.intepreter.{
   ProvisionerApiServiceImpl
 }
 import it.agilelab.datamesh.snowflakespecificprovisioner.api.{SpecificProvisionerApi, SpecificProvisionerApiService}
-import it.agilelab.datamesh.snowflakespecificprovisioner.s3.gateway.{S3Gateway, S3GatewayMock}
 import it.agilelab.datamesh.snowflakespecificprovisioner.server.Controller
-import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.{httpPort, isMocked}
+import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.httpPort
 
 import scala.jdk.CollectionConverters._
 
@@ -58,17 +57,5 @@ object Main extends LazyLogging {
     BuildInfo.name.replaceAll("""\.""", "-")
   )
 
-  @SuppressWarnings(Array("scalafix:DisableSyntax.throw"))
-  def clientAws: S3Gateway =
-    if (isMocked) { new S3GatewayMock }
-    else {
-      S3Gateway.apply match {
-        case Left(exception) =>
-          logger.error("Error: ", exception)
-          throw exception
-        case Right(value)    => value
-      }
-    }
-
-  def main(args: Array[String]): Unit = { val _ = run(httpPort, new ProvisionerApiServiceImpl(clientAws)) }
+  def main(args: Array[String]): Unit = { val _ = run(httpPort, new ProvisionerApiServiceImpl()) }
 }
