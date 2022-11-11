@@ -10,7 +10,7 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.api.SpecificProvisioner
 import it.agilelab.datamesh.snowflakespecificprovisioner.model._
 import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.{SnowflakeError, SnowflakeManager}
 
-class ProvisionerApiServiceImpl() extends SpecificProvisionerApiService with LazyLogging {
+class ProvisionerApiServiceImpl extends SpecificProvisionerApiService with LazyLogging {
 
   // Json String
   implicit val toEntityMarshallerJsonString: ToEntityMarshaller[String]       = marshaller[String]
@@ -39,7 +39,21 @@ class ProvisionerApiServiceImpl() extends SpecificProvisionerApiService with Laz
       toEntityMarshallerSystemError: ToEntityMarshaller[SystemError],
       toEntityMarshallerProvisioningStatus: ToEntityMarshaller[ProvisioningStatus],
       toEntityMarshallerValidationError: ToEntityMarshaller[ValidationError]
-  ): Route = provision202("\"OK\"")
+  ): Route =
+    ProvisioningRequestDescriptor(provisioningRequest.descriptor).flatMap(snowflakeManager.executeProvision) match {
+      case Left(e: SnowflakeError)  =>
+        logger.error("System error: {}", e.errorMessage)
+        provision500(SystemError(e.errorMessage))
+      case Left(e: NonEmptyList[_]) =>
+        logger.error("Validation error: {}", e.toList)
+        provision400(ValidationError(e.toList.map(_.toString)))
+      case Right(_)                 =>
+        logger.info("OK")
+        provision202("OK")
+      case _                        =>
+        logger.error("Generic error")
+        provision500(SystemError("Generic error"))
+    }
 
   /** Code: 200, Message: It synchronously returns the request result, DataType: String
    *  Code: 400, Message: Invalid input, DataType: ValidationError

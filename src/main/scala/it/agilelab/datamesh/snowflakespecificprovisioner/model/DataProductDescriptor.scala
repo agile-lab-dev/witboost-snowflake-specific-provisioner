@@ -13,7 +13,10 @@ trait YamlPrinter {
 
 final case class DataProductDescriptor(
     id: String,
+    name: String,
+    version: String,
     environment: String,
+    domain: String,
     header: Json,
     components: List[ComponentDescriptor]
 ) extends YamlPrinter {
@@ -24,7 +27,6 @@ final case class DataProductDescriptor(
 
   def getName: Either[String, String] = header.hcursor.downField(Constants.NAME_FIELD).as[String].left
     .map(_ => s"cannot parse Data Product name for ${header.spaces2}")
-
 }
 
 object DataProductDescriptor {
@@ -52,6 +54,15 @@ object DataProductDescriptor {
       result.collectFirst { case Left(error) => error }.toLeft(result.collect { case Right(r) => r })
   }
 
+  private def getDomain(header: Json): Either[String, String] = header.hcursor.downField("domain").as[String].left
+    .map(_ => s"cannot parse Data Product domain for ${header.spaces2}")
+
+  private def getName(header: Json) = header.hcursor.downField("name").as[String].left
+    .map(_ => s"cannot parse Data Product name for ${header.spaces2}")
+
+  private def getVersion(header: Json) = header.hcursor.downField("version").as[String].left
+    .map(_ => s"cannot parse Data Product version for ${header.spaces2}")
+
   def apply(yaml: String): Either[String, DataProductDescriptor] = parser.parse(yaml) match {
     case Left(err)   => Left(err.getMessage())
     case Right(json) =>
@@ -60,8 +71,11 @@ object DataProductDescriptor {
         header      <- getDpHeaderDescriptor(hcursor.root)
         id          <- getId(header)
         environment <- getEnvironment(header)
+        domain      <- getDomain(header)
+        name        <- getName(header)
+        version     <- getVersion(header)
         components  <- getComponentsDescriptor(environment, header)
-      } yield DataProductDescriptor(id, environment, header, components)
+      } yield DataProductDescriptor(id, name, version, environment, domain, header, components)
 
       maybeDp match {
         case Left(errorMsg) => Left(errorMsg)

@@ -28,3 +28,15 @@ final case class AssignRoleToUserStatementError(user: String, storageName: Strin
 final case class AssignRoleToUsersStatementError(error: List[String]) extends SnowflakeError {
   override def errorMessage: String = s"AssignRoleToUsersStatementError($error)"
 }
+
+final case class CreateTableError(error: String) extends SnowflakeError {
+  override def errorMessage: String = s"CreateTableError($error)"
+}
+
+final case class GetComponentError(error: String) extends SnowflakeError {
+  override def errorMessage: String = s"GetComponentError($error)"
+}
+
+final case class GetSchemaError(error: String) extends SnowflakeError {
+  override def errorMessage: String = s"GetSchemaError($error)"
+}

@@ -6,11 +6,9 @@ import com.typesafe.scalalogging.LazyLogging
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
 import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.{
   account,
-  db,
   jdbcUrl,
   password,
   role,
-  schema,
   user,
   warehouse
 }
@@ -21,6 +19,17 @@ import scala.util.{Failure, Success, Try}
 
 class SnowflakeManager extends LazyLogging {
 
+  val queryBuilder = new QueryHelper
+
+  def executeProvision(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
+    logger.info("Starting executeProvision...")
+    for {
+      connection <- getConnection
+      statement  <- queryBuilder.buildCreateTableStatement(descriptor)
+      _          <- createTable(connection, statement)
+    } yield ()
+  }
+
   def executeUpdateAcl(
       descriptor: ProvisioningRequestDescriptor,
       refs: Seq[String]
@@ -28,11 +37,24 @@ class SnowflakeManager extends LazyLogging {
     logger.info("Starting executing executeUpdateAcl for users: {}...", refs.mkString(", "))
     for {
       connection <- getConnection
-      tableName  <- getTableName(descriptor)
-      _          <- createRoleStatement(connection, tableName)
-      _          <- assignPrivilegesToRoleStatement(connection, tableName)
-      _          <- assignRoleToUsers(connection, tableName, refs)
+      component  <- queryBuilder.getComponent(descriptor)
+      tableName  <- queryBuilder.getTableName(descriptor)
+      database = queryBuilder.getDatabase(descriptor, component.specific)
+      schema   = queryBuilder.getDatabaseSchema(descriptor, component.specific)
+      _ <- createRoleStatement(connection, tableName)
+      _ <- assignPrivilegesToRoleStatement(connection, database, schema, tableName)
+      _ <- assignRoleToUsers(connection, tableName, refs)
     } yield ()
+  }
+
+  def createTable(connection: Connection, statement: String): Either[SnowflakeError with Product, Unit] = Try {
+    logger.info("Starting creating table...")
+    val createTableStatement = connection.createStatement()
+    createTableStatement.executeUpdate(statement)
+    createTableStatement.close()
+  } match {
+    case Failure(exception) => Left(CreateTableError(exception.getMessage))
+    case Success(_)         => Right(())
   }
 
   def assignRoleToUsers(
@@ -62,12 +84,14 @@ class SnowflakeManager extends LazyLogging {
 
   def assignPrivilegesToRoleStatement(
       connection: Connection,
+      database: String,
+      schema: String,
       tableName: String
   ): Either[SnowflakeError with Product, Unit] = Try {
     logger.info("Starting assigning privileges to role {}_ACCESS", tableName.toUpperCase)
     val assignPrivilegesToRoleStatement = connection.createStatement()
     assignPrivilegesToRoleStatement
-      .executeUpdate(s"GRANT SELECT ON TABLE $db.$schema.$tableName TO ROLE ${tableName.toUpperCase}_ACCESS;")
+      .executeUpdate(s"GRANT SELECT ON TABLE $database.$schema.$tableName TO ROLE ${tableName.toUpperCase}_ACCESS;")
     assignPrivilegesToRoleStatement.close()
   } match {
     case Failure(exception) => Left(AssignPrivilegesToRoleStatementError(tableName, exception.getMessage))
@@ -92,20 +116,10 @@ class SnowflakeManager extends LazyLogging {
     properties.put("role", role)
     properties.put("account", account)
     properties.put("warehouse", warehouse)
-    properties.put("db", db)
     DriverManager.getConnection(jdbcUrl, properties)
   } match {
     case Failure(exception)  => Left(GetConnectionError(exception.getMessage))
     case Success(connection) => Right(connection)
-  }
-
-  def getTableName(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, String] = {
-    logger.info("Starting getting tableName param from the descriptor...")
-    for {
-      component <- descriptor.getComponentToProvision.toRight(GetTableNameError("Unable to find component"))
-      tableName <- component.specific.hcursor.downField("tableName").as[String].left
-        .map(error => GetTableNameError(error.message))
-    } yield tableName
   }
 
 }

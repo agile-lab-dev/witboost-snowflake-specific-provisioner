@@ -10,6 +10,4 @@ snowflake:
   role: !vault k8s/snowflake/snowflake_role#value
   account: !vault k8s/snowflake/snowflake_account#value
   warehouse: !vault k8s/snowflake/snowflake_warehouse#value
-  db: !vault k8s/snowflake/snowflake_db#value
   jdbcUrl: !vault k8s/snowflake/snowflake_base_url#value
-  schema: !vault k8s/snowflake/snowflake_schema#value

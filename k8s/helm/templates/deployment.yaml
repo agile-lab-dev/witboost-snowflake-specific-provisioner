@@ -74,12 +74,8 @@ spec:
               value: {{ .Values.snowflake.account }}
             - name: SNOWFLAKE_WAREHOUSE
               value: {{ .Values.snowflake.warehouse }}
-            - name: SNOWFLAKE_DB
-              value: {{ .Values.snowflake.db }}
             - name: JDBC_URL
               value: {{ .Values.snowflake.jdbcUrl }}
-            - name: SNOWFLAKE_SCHEMA
-              value: {{ .Values.snowflake.schema }}
           volumeMounts:
           - name: application-conf
             mountPath: /opt/docker/etc/app-conf
