@@ -7,6 +7,18 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.schema.ColumnSchemaSpec
 
 class QueryHelper extends LazyLogging {
 
+  def buildDeleteTableStatement(
+      descriptor: ProvisioningRequestDescriptor
+  ): Either[SnowflakeError with Product, String] = {
+    logger.info("Starting buildDeleteStatement method...")
+    for {
+      component <- getComponent(descriptor)
+      dbName   = getDatabase(descriptor, component.specific)
+      dbSchema = getDatabaseSchema(descriptor, component.specific)
+      tableName <- getTableName(descriptor)
+    } yield formatSnowflakeDeleteTableStatement(dbName, dbSchema, tableName)
+  }
+
   def buildCreateTableStatement(
       descriptor: ProvisioningRequestDescriptor
   ): Either[SnowflakeError with Product, String] = {
@@ -17,10 +29,18 @@ class QueryHelper extends LazyLogging {
       dbSchema = getDatabaseSchema(descriptor, component.specific)
       tableName <- getTableName(descriptor)
       schema    <- getTableSchema(descriptor)
-    } yield formatSnowflakeStatement(dbName, dbSchema, tableName, schema)
+    } yield formatSnowflakeCreateTableStatement(dbName, dbSchema, tableName, schema)
   }
 
-  def formatSnowflakeStatement(dbName: String, dbSchema: String, tableName: String, schema: List[ColumnSchemaSpec]) =
+  def formatSnowflakeDeleteTableStatement(dbName: String, dbSchema: String, tableName: String) =
+    s"DROP TABLE IF EXISTS $dbName.$dbSchema.${tableName.toUpperCase};"
+
+  def formatSnowflakeCreateTableStatement(
+      dbName: String,
+      dbSchema: String,
+      tableName: String,
+      schema: List[ColumnSchemaSpec]
+  ) =
     s"CREATE TABLE IF NOT EXISTS $dbName.$dbSchema.${tableName.toUpperCase} (${schema.map(_.toColumnStatement).mkString(",\n")});"
 
   def getDatabase(descriptor: ProvisioningRequestDescriptor, specific: Json): String = {

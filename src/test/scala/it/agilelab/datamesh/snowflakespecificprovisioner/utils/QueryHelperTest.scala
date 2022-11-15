@@ -17,7 +17,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       ColumnSchemaSpec("age", DataType.NUMBER, ConstraintType.NOCONSTRAINT)
     )
 
-    queryHelper.formatSnowflakeStatement("my-test", "your", "test_table", cols) should be(
+    queryHelper.formatSnowflakeCreateTableStatement("my-test", "your", "test_table", cols) should be(
       "CREATE TABLE IF NOT EXISTS my-test.your.TEST_TABLE (name TEXT,\n" + "phone_number TEXT,\n" + "id TEXT,\n" +
         "age NUMBER);"
     )

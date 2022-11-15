@@ -21,12 +21,21 @@ class SnowflakeManager extends LazyLogging {
 
   val queryBuilder = new QueryHelper
 
+  def executeUnprovision(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
+    logger.info("Starting executeUnprovision...")
+    for {
+      connection <- getConnection
+      statement  <- queryBuilder.buildDeleteTableStatement(descriptor)
+      _          <- executeStatement(connection, statement)
+    } yield ()
+  }
+
   def executeProvision(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
     logger.info("Starting executeProvision...")
     for {
       connection <- getConnection
       statement  <- queryBuilder.buildCreateTableStatement(descriptor)
-      _          <- createTable(connection, statement)
+      _          <- executeStatement(connection, statement)
     } yield ()
   }
 
@@ -47,15 +56,16 @@ class SnowflakeManager extends LazyLogging {
     } yield ()
   }
 
-  def createTable(connection: Connection, statement: String): Either[SnowflakeError with Product, Unit] = Try {
-    logger.info("Starting creating table...")
-    val createTableStatement = connection.createStatement()
-    createTableStatement.executeUpdate(statement)
-    createTableStatement.close()
-  } match {
-    case Failure(exception) => Left(CreateTableError(exception.getMessage))
-    case Success(_)         => Right(())
-  }
+  def executeStatement(connection: Connection, statementString: String): Either[SnowflakeError with Product, Unit] =
+    Try {
+      logger.info("Starting execute statement...")
+      val statement = connection.createStatement()
+      statement.executeUpdate(statementString)
+      statement.close()
+    } match {
+      case Failure(exception) => Left(ExecuteStatementError(exception.getMessage))
+      case Success(_)         => Right(())
+    }
 
   def assignRoleToUsers(
       connection: Connection,

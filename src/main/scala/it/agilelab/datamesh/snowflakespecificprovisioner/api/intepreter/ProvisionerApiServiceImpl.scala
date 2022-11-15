@@ -75,7 +75,21 @@ class ProvisionerApiServiceImpl extends SpecificProvisionerApiService with LazyL
       toEntityMarshallerSystemError: ToEntityMarshaller[SystemError],
       toEntityMarshallerProvisioningStatus: ToEntityMarshaller[ProvisioningStatus],
       toEntityMarshallerValidationError: ToEntityMarshaller[ValidationError]
-  ): Route = unprovision202("\"OK\"")
+  ): Route =
+    ProvisioningRequestDescriptor(provisioningRequest.descriptor).flatMap(snowflakeManager.executeUnprovision) match {
+      case Left(e: SnowflakeError)  =>
+        logger.error("System error: {}", e.errorMessage)
+        unprovision500(SystemError(e.errorMessage))
+      case Left(e: NonEmptyList[_]) =>
+        logger.error("Validation error: {}", e.toList)
+        unprovision400(ValidationError(e.toList.map(_.toString)))
+      case Right(_)                 =>
+        logger.info("OK")
+        unprovision202("OK")
+      case _                        =>
+        logger.error("Generic error")
+        unprovision500(SystemError("Generic error"))
+    }
 
   /** Code: 200, Message: It synchronously returns the access request response, DataType: ProvisioningStatus
    *  Code: 202, Message: It synchronously returns the access request response, DataType: String

@@ -29,8 +29,8 @@ final case class AssignRoleToUsersStatementError(error: List[String]) extends Sn
   override def errorMessage: String = s"AssignRoleToUsersStatementError($error)"
 }
 
-final case class CreateTableError(error: String) extends SnowflakeError {
-  override def errorMessage: String = s"CreateTableError($error)"
+final case class ExecuteStatementError(error: String) extends SnowflakeError {
+  override def errorMessage: String = s"ExecuteStatementError($error)"
 }
 
 final case class GetComponentError(error: String) extends SnowflakeError {
