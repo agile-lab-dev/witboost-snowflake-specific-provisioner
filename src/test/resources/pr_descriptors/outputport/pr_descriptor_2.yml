@@ -1,10 +1,10 @@
 dataProduct:
-  name: Marketing-Invoice-1
+  name: DpOwnerTest
   environment: dev
   description: Dataproduct invoice
   dataProductOwner: group:bigdata
   dataProductOwnerDisplayName: Group BigData
-  domain: domain:marketing
+  domain: marketing
   kind: dataproduct
   email: contact@example.com
   version: 1.0.0
@@ -21,7 +21,7 @@ dataProduct:
       name: Marketing-Invoice-S3-Ingestion-Data-1
       fullyQualifiedName: Marketing Invoice S3 Ingestion Data
       description: Marketing Invoice S3 Ingestion Data
-      kind: storage
+      kind: outputport
       owners:
         - group:bigdata
       infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0
@@ -29,18 +29,20 @@ dataProduct:
       dependsOn: [ ]
       platform: CDP_AWS
       technology: CDP_S3
-      storageType: SQL
+      dataContract:
+        schema:
+          - name: id
+            dataType: TEXT
+            constraint: PRIMARY KEY
+          - name: name
+            dataType: TEXT
+            constraint: NO CONSTRAINT
+          - name: phone
+            dataType: NUMBER
+            constraint: NULLABLE
       tags: [ ]
       specific:
-        warehouse: warehouse_test_1
-        tableName: test_table
-        database: database_test_1
-        schema: schema_test_1
-        tables:
-          - name: test
-            fields:
-              - name: id
-                type: int
-              - name: description
-                type: varchar(50)
+        tableName: snowflake_table
+        database: TEST_AIRBYTE
+        schema: PUBLIC
 componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

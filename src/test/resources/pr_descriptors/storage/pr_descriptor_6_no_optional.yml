@@ -30,19 +30,29 @@ dataProduct:
       platform: CDP_AWS
       technology: CDP_S3
       storageType: SQL
-      dataContract:
-        schema:
-          - name: id
-            dataType: TEXT
-            constraint: PRIMARY KEY
-          - name: name
-            dataType: TEXT
-            constraint: NO CONSTRAINT
-          - name: phone
-            dataType: NUMBER
-            constraint: NULLABLE
       tags: [ ]
       specific:
-        tableName: snowflake_table
-        database: TEST_AIRBYTE
+        tables:
+          - tableName: table1
+            schema:
+            - name: id
+              dataType: TEXT
+              constraint: PRIMARY KEY
+            - name: name
+              dataType: TEXT
+              constraint: NO CONSTRAINT
+            - name: phone
+              dataType: NUMBER
+              constraint: NULLABLE
+          - tableName: table2
+            schema:
+              - name: id
+                dataType: TEXT
+                constraint: PRIMARY KEY
+              - name: name
+                dataType: TEXT
+                constraint: NO CONSTRAINT
+              - name: phone
+                dataType: NUMBER
+                constraint: NULLABLE
 componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

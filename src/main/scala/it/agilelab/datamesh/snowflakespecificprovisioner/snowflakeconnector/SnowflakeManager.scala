@@ -3,6 +3,7 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector
 import cats.data.NonEmptyList
 import cats.implicits.toTraverseOps
 import com.typesafe.scalalogging.LazyLogging
+import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants.{OUTPUT_PORT, STORAGE}
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
 import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.{
   account,
@@ -12,7 +13,17 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfi
   user,
   warehouse
 }
-
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
+  ASSIGN_PRIVILEGES,
+  ASSIGN_ROLE,
+  CREATE_DB,
+  CREATE_ROLE,
+  CREATE_SCHEMA,
+  CREATE_TABLE,
+  CREATE_TABLES,
+  DELETE_TABLE,
+  DELETE_TABLES
+}
 import java.sql.{Connection, DriverManager}
 import java.util.Properties
 import scala.util.{Failure, Success, Try}
@@ -21,39 +32,104 @@ class SnowflakeManager extends LazyLogging {
 
   val queryBuilder = new QueryHelper
 
-  def executeUnprovision(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
-    logger.info("Starting executeUnprovision...")
+  def provisionOutputPort(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
+    logger.info("Starting output port provisioning")
+    for {
+      connection      <- getConnection
+      dbStatement     <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_DB)
+      _               <- executeStatement(connection, dbStatement)
+      schemaStatement <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_SCHEMA)
+      _               <- executeStatement(connection, schemaStatement)
+      tableStatement  <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_TABLE)
+      _               <- executeStatement(connection, tableStatement)
+    } yield ()
+  }
+
+  def unprovisionOutputPort(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
+    logger.info("Starting output port unprovisioning")
     for {
       connection <- getConnection
-      statement  <- queryBuilder.buildDeleteTableStatement(descriptor)
+      statement  <- queryBuilder.buildOutputPortStatement(descriptor, DELETE_TABLE)
       _          <- executeStatement(connection, statement)
     } yield ()
   }
 
-  def executeProvision(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
-    logger.info("Starting executeProvision...")
-    for {
-      connection <- getConnection
-      statement  <- queryBuilder.buildCreateTableStatement(descriptor)
-      _          <- executeStatement(connection, statement)
-    } yield ()
-  }
-
-  def executeUpdateAcl(
+  def updateAclOutputPort(
       descriptor: ProvisioningRequestDescriptor,
       refs: Seq[String]
   ): Either[SnowflakeError with Product, Unit] = {
     logger.info("Starting executing executeUpdateAcl for users: {}...", refs.mkString(", "))
     for {
-      connection <- getConnection
-      component  <- queryBuilder.getComponent(descriptor)
-      tableName  <- queryBuilder.getTableName(descriptor)
-      database = queryBuilder.getDatabase(descriptor, component.specific)
-      schema   = queryBuilder.getDatabaseSchema(descriptor, component.specific)
-      _ <- createRoleStatement(connection, tableName)
-      _ <- assignPrivilegesToRoleStatement(connection, database, schema, tableName)
-      _ <- assignRoleToUsers(connection, tableName, refs)
+      connection                <- getConnection
+      createRoleStatement       <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_ROLE)
+      _                         <- executeStatement(connection, createRoleStatement)
+      assignPrivilegesStatement <- queryBuilder.buildOutputPortStatement(descriptor, ASSIGN_PRIVILEGES)
+      _                         <- executeStatement(connection, assignPrivilegesStatement)
+      assignRoleStatements      <- queryBuilder.buildRefsStatement(descriptor, refs, ASSIGN_ROLE)
+      _                         <- executeMultipleStatement(connection, assignRoleStatements)
     } yield ()
+  }
+
+  def provisionStorage(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
+    logger.info("Starting storage provisioning")
+    for {
+      connection      <- getConnection
+      dbStatement     <- queryBuilder.buildStorageStatement(descriptor, CREATE_DB)
+      _               <- executeStatement(connection, dbStatement)
+      schemaStatement <- queryBuilder.buildStorageStatement(descriptor, CREATE_SCHEMA)
+      _               <- executeStatement(connection, schemaStatement)
+      tablesStatement <- queryBuilder.buildMultipleStatement(descriptor, CREATE_TABLES)
+      _               <- tablesStatement match {
+        case statement if statement.nonEmpty => executeMultipleStatement(connection, tablesStatement)
+        case _                               => Right(logger.info("Skipping table creation - no information provided"))
+      }
+    } yield ()
+  }
+
+  def unprovisionStorage(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
+    logger.info("Starting storage unprovisioning")
+    for {
+      connection      <- getConnection
+      tablesStatement <- queryBuilder.buildMultipleStatement(descriptor, DELETE_TABLES)
+      _               <- tablesStatement match {
+        case statement if statement.nonEmpty => executeMultipleStatement(connection, tablesStatement)
+        case _                               => Right(logger.info("Skipping table deletion - no tables to delete"))
+      }
+    } yield ()
+  }
+
+  def executeProvision(descriptor: ProvisioningRequestDescriptor): Either[Product, Unit] =
+    descriptor.getComponentToProvision match {
+      case Some(component) => component.getKind match {
+          case Right(kind) if kind.equals(STORAGE)     => provisionStorage(descriptor)
+          case Right(kind) if kind.equals(OUTPUT_PORT) => provisionOutputPort(descriptor)
+          case Right(unsupportedKind) => Left(NonEmptyList.one("Unsupported component kind: " + unsupportedKind))
+          case Left(error)            => Left(NonEmptyList.one(error))
+        }
+      case _               => Left(NonEmptyList.one("The yaml is not a correct Provisioning Request: "))
+    }
+
+  def executeUnprovision(descriptor: ProvisioningRequestDescriptor): Either[Product, Unit] =
+    descriptor.getComponentToProvision match {
+      case Some(component) => component.getKind match {
+          case Right(kind) if kind.equals(STORAGE)     => unprovisionStorage(descriptor)
+          case Right(kind) if kind.equals(OUTPUT_PORT) => unprovisionOutputPort(descriptor)
+          case Right(unsupportedKind) => Left(NonEmptyList.one("Unsupported component kind: " + unsupportedKind))
+          case Left(error)            => Left(NonEmptyList.one(error))
+        }
+      case _               => Left(NonEmptyList.one("The yaml is not a correct Provisioning Request: "))
+    }
+
+  def executeUpdateAcl(descriptor: ProvisioningRequestDescriptor, refs: Seq[String]): Either[Product, Unit] = {
+    logger.info("Starting executing executeUpdateAcl for users: {}", refs.mkString(", "))
+    descriptor.getComponentToProvision match {
+      case Some(component) => component.getKind match {
+          case Right(kind) if kind.equals(OUTPUT_PORT) => updateAclOutputPort(descriptor, refs)
+          case Right(unsupportedKind) => Left(NonEmptyList.one("Unsupported component kind: " + unsupportedKind))
+          case Left(error)            => Left(NonEmptyList.one(error))
+        }
+      case _               => Left(NonEmptyList.one("The yaml is not a correct Provisioning Request: "))
+    }
   }
 
   def executeStatement(connection: Connection, statementString: String): Either[SnowflakeError with Product, Unit] =
@@ -67,56 +143,12 @@ class SnowflakeManager extends LazyLogging {
       case Success(_)         => Right(())
     }
 
-  def assignRoleToUsers(
+  def executeMultipleStatement(
       connection: Connection,
-      tableName: String,
-      refs: Seq[String]
-  ): Either[SnowflakeError with Product, Seq[Unit]] = {
-    logger.info("Starting assigning role to users...")
-    refs.map(user => assignRoleToUserStatement(connection, tableName, user)).sequence.left
-      .map(errorList => AssignRoleToUsersStatementError(errorList.toList))
-  }
-
-  def assignRoleToUserStatement(
-      connection: Connection,
-      tableName: String,
-      user: String
-  ): Either[NonEmptyList[String], Unit] = Try {
-    logger.info("Starting assinging role to user: {}", user)
-    val assignRoleToUserStatement = connection.createStatement()
-    assignRoleToUserStatement.executeUpdate(s"GRANT ROLE ${tableName.toUpperCase}_ACCESS TO USER \"$user\";")
-    assignRoleToUserStatement.close()
-  } match {
-    case Failure(exception) =>
-      Left(NonEmptyList.one(AssignRoleToUserStatementError(user, tableName, exception.getMessage).errorMessage))
-    case Success(_)         => Right(())
-  }
-
-  def assignPrivilegesToRoleStatement(
-      connection: Connection,
-      database: String,
-      schema: String,
-      tableName: String
-  ): Either[SnowflakeError with Product, Unit] = Try {
-    logger.info("Starting assigning privileges to role {}_ACCESS", tableName.toUpperCase)
-    val assignPrivilegesToRoleStatement = connection.createStatement()
-    assignPrivilegesToRoleStatement
-      .executeUpdate(s"GRANT SELECT ON TABLE $database.$schema.$tableName TO ROLE ${tableName.toUpperCase}_ACCESS;")
-    assignPrivilegesToRoleStatement.close()
-  } match {
-    case Failure(exception) => Left(AssignPrivilegesToRoleStatementError(tableName, exception.getMessage))
-    case Success(_)         => Right(())
-  }
-
-  def createRoleStatement(connection: Connection, tableName: String): Either[SnowflakeError with Product, Unit] = Try {
-    logger.info("Starting to create role {}_ACCESS", tableName.toUpperCase)
-    val createRoleStatement = connection.createStatement()
-    createRoleStatement.executeUpdate(s"CREATE ROLE IF NOT EXISTS ${tableName.toUpperCase}_ACCESS;")
-    createRoleStatement.close()
-  } match {
-    case Failure(exception) => Left(CreateRoleStatementError(tableName, exception.getMessage))
-    case Success(_)         => Right(())
-  }
+      statements: Seq[String]
+  ): Either[SnowflakeError with Product, Seq[Unit]] = statements
+    .map(statement => executeStatement(connection, statement)).sequence.left
+    .map(errorList => ExecuteStatementError(errorList.toString))
 
   def getConnection: Either[SnowflakeError with Product, Connection] = Try {
     logger.info("Getting connection to Snowflake account...")

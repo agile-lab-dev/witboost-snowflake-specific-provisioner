@@ -12,23 +12,6 @@ final case class GetTableNameError(error: String) extends SnowflakeError {
   override def errorMessage: String = s"GetStorageNameError($error)"
 }
 
-final case class CreateRoleStatementError(storageName: String, error: String) extends SnowflakeError {
-  override def errorMessage: String = s"CreateRoleStatementError($storageName, $error)"
-}
-
-final case class AssignPrivilegesToRoleStatementError(storageName: String, error: String) extends SnowflakeError {
-  override def errorMessage: String = s"AssignPrivilegesToRoleStatementError($storageName, $error)"
-}
-
-final case class AssignRoleToUserStatementError(user: String, storageName: String, error: String)
-    extends SnowflakeError {
-  override def errorMessage: String = s"AssignRoleToUserStatementError($user, $storageName, $error)"
-}
-
-final case class AssignRoleToUsersStatementError(error: List[String]) extends SnowflakeError {
-  override def errorMessage: String = s"AssignRoleToUsersStatementError($error)"
-}
-
 final case class ExecuteStatementError(error: String) extends SnowflakeError {
   override def errorMessage: String = s"ExecuteStatementError($error)"
 }
@@ -39,4 +22,8 @@ final case class GetComponentError(error: String) extends SnowflakeError {
 
 final case class GetSchemaError(error: String) extends SnowflakeError {
   override def errorMessage: String = s"GetSchemaError($error)"
+}
+
+final case class UnsupportedOperationError(error: String) extends SnowflakeError {
+  override def errorMessage: String = s"UnsupportedOperationError($error)"
 }

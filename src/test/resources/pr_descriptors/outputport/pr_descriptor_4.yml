@@ -21,7 +21,7 @@ dataProduct:
       name: Marketing-Invoice-S3-Ingestion-Data-1
       fullyQualifiedName: Marketing Invoice S3 Ingestion Data
       description: Marketing Invoice S3 Ingestion Data
-      kind: storage
+      kind: outputport
       owners:
         - group:bigdata
       infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0
@@ -29,7 +29,6 @@ dataProduct:
       dependsOn: [ ]
       platform: CDP_AWS
       technology: CDP_S3
-      storageType: SQL
       dataContract:
         schema:
           - name: id
@@ -44,5 +43,5 @@ dataProduct:
       tags: [ ]
       specific:
         tableName: snowflake_table
-        schema: PUBLIC
+        database: TEST_AIRBYTE
 componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

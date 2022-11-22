@@ -9,7 +9,7 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.common.test.getTestReso
 class DescriptorParserSpec extends AnyFlatSpec {
 
   "Parsing a well formed descriptor" should "return a correct DataProductDescriptor" in {
-    val yaml = getTestResourceAsString("pr_descriptors/pr_descriptor_1.yml")
+    val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1.yml")
 
     val prDescr = ProvisioningRequestDescriptor(yaml)
 
@@ -23,7 +23,7 @@ class DescriptorParserSpec extends AnyFlatSpec {
   }
 
   "Parsing a well formed descriptor" should "return a correct ComponentToProvision" in {
-    val yaml = getTestResourceAsString("pr_descriptors/pr_descriptor_1.yml")
+    val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1.yml")
 
     val prDescr = ProvisioningRequestDescriptor(yaml)
 
@@ -34,7 +34,7 @@ class DescriptorParserSpec extends AnyFlatSpec {
 
   "Parsing a wrongly formed descriptor with missing component id field" should "return a Left with a Exception" in {
 
-    val yaml = getTestResourceAsString("pr_descriptors/pr_descriptor_1_missing_component_id.yml")
+    val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1_missing_component_id.yml")
 
     val dp: EitherNel[String, ProvisioningRequestDescriptor] = ProvisioningRequestDescriptor(yaml)
 
@@ -45,7 +45,7 @@ class DescriptorParserSpec extends AnyFlatSpec {
 
   "Parsing a wrongly formed descriptor with missing components section" should "return a Left with a Exception" in {
 
-    val yaml = getTestResourceAsString("pr_descriptors/pr_descriptor_1_missing_components.yml")
+    val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1_missing_components.yml")
 
     val dp: EitherNel[String, ProvisioningRequestDescriptor] = ProvisioningRequestDescriptor(yaml)
 
@@ -57,7 +57,7 @@ class DescriptorParserSpec extends AnyFlatSpec {
   "Parsing a wrongly formed descriptor with missing specific section in component" should
     "return a Left with a Exception" in {
 
-      val yaml = getTestResourceAsString("pr_descriptors/pr_descriptor_1_missing_specific.yml")
+      val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1_missing_specific.yml")
 
       val dp: EitherNel[String, ProvisioningRequestDescriptor] = ProvisioningRequestDescriptor(yaml)
 
