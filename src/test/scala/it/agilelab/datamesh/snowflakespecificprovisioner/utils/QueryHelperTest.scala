@@ -57,8 +57,8 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
     val descriptor = ProvisioningRequestDescriptor(yaml)
 
     queryHelper.buildOutputPortStatement(descriptor.toOption.get, CREATE_TABLE).toOption.get should be(
-      "CREATE TABLE IF NOT EXISTS TEST_AIRBYTE.DPOWNERTEST_100.SNOWFLAKE_TABLE (id TEXT PRIMARY KEY,\n" +
-        "name TEXT,\n" + "phone NUMBER NULL);"
+      "CREATE TABLE IF NOT EXISTS TEST_AIRBYTE.DPOWNERTEST_1.SNOWFLAKE_TABLE (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
+        "phone NUMBER NULL);"
     )
   }
 
@@ -67,7 +67,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
     val descriptor = ProvisioningRequestDescriptor(yaml)
 
     queryHelper.buildOutputPortStatement(descriptor.toOption.get, CREATE_TABLE).toOption.get should be(
-      "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_100.SNOWFLAKE_TABLE (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
+      "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.SNOWFLAKE_TABLE (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
         "phone NUMBER NULL);"
     )
   }
@@ -105,7 +105,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
       queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_SCHEMA).toOption.get should
-        be("CREATE SCHEMA IF NOT EXISTS MARKETING.DPOWNERTEST_100;")
+        be("CREATE SCHEMA IF NOT EXISTS MARKETING.DPOWNERTEST_1;")
     }
 
   "buildStorageStatement method" should
@@ -114,9 +114,9 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
       queryHelper.buildMultipleStatement(descriptor.toOption.get, CREATE_TABLES).toOption.get should be(List(
-        "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_100.TABLE1 (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
+        "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE1 (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
           "phone NUMBER NULL);",
-        "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_100.TABLE2 (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
+        "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE2 (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
           "phone NUMBER NULL);"
       ))
     }
@@ -136,8 +136,8 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
       queryHelper.buildMultipleStatement(descriptor.toOption.get, DELETE_TABLES).toOption.get should be(List(
-        "DROP TABLE IF EXISTS MARKETING.DPOWNERTEST_100.TABLE1;",
-        "DROP TABLE IF EXISTS MARKETING.DPOWNERTEST_100.TABLE2;"
+        "DROP TABLE IF EXISTS MARKETING.DPOWNERTEST_1.TABLE1;",
+        "DROP TABLE IF EXISTS MARKETING.DPOWNERTEST_1.TABLE2;"
       ))
     }
 

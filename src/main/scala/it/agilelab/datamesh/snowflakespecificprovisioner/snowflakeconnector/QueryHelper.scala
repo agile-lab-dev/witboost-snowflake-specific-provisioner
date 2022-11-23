@@ -135,7 +135,7 @@ class QueryHelper extends LazyLogging {
     specific.hcursor.downField("schema").as[String] match {
       case Left(_)         =>
         logger.info("Database schema not found in specific field, taking data product name and version...")
-        s"${descriptor.dataProduct.name.toUpperCase}_${descriptor.dataProduct.version.split('.').mkString("")}"
+        s"${descriptor.dataProduct.name.toUpperCase.replaceAll(" ", "")}_${descriptor.dataProduct.version.split('.')(0)}"
       case Right(dbSchema) =>
         logger.info("Database schema found")
         dbSchema
