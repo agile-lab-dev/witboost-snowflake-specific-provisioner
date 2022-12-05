@@ -12,6 +12,10 @@ final case class GetTableNameError(error: String) extends SnowflakeError {
   override def errorMessage: String = s"GetStorageNameError($error)"
 }
 
+final case class GetViewNameError(error: String) extends SnowflakeError {
+  override def errorMessage: String = s"GetViewNameError($error)"
+}
+
 final case class ExecuteStatementError(error: String) extends SnowflakeError {
   override def errorMessage: String = s"ExecuteStatementError($error)"
 }

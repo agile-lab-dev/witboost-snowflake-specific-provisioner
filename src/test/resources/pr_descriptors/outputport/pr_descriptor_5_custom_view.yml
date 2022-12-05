@@ -44,5 +44,5 @@ dataProduct:
       specific:
         viewName: snowflake_view
         tableName: snowflake_table
-        schema: PUBLIC
+        customView: CREATE VIEW IF NOT EXISTS TEST_AIRBYTE.PUBLIC.snowflake_view AS (SELECT * FROM TEST_AIRBYTE.PUBLIC.snowflake_table);
 componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

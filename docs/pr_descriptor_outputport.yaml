@@ -42,7 +42,8 @@ dataProduct:
             constraint: NULLABLE
       tags: [ ]
       specific:
-        tableName: snowflake_table
         database: TEST_AIRBYTE
         schema: PUBLIC
+        viewName: snowflake_view
+        tableName: snowflake_table
 componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

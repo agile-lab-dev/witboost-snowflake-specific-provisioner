@@ -42,6 +42,7 @@ dataProduct:
             constraint: NULLABLE
       tags: [ ]
       specific:
+        viewName: snowflake_view
         tableName: snowflake_table
         database: TEST_AIRBYTE
         schema: PUBLIC

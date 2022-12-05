@@ -19,10 +19,10 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   CREATE_DB,
   CREATE_ROLE,
   CREATE_SCHEMA,
-  CREATE_TABLE,
   CREATE_TABLES,
-  DELETE_TABLE,
-  DELETE_TABLES
+  CREATE_VIEW,
+  DELETE_TABLES,
+  DELETE_VIEW
 }
 import java.sql.{Connection, DriverManager}
 import java.util.Properties
@@ -40,8 +40,8 @@ class SnowflakeManager extends LazyLogging {
       _               <- executeStatement(connection, dbStatement)
       schemaStatement <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_SCHEMA)
       _               <- executeStatement(connection, schemaStatement)
-      tableStatement  <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_TABLE)
-      _               <- executeStatement(connection, tableStatement)
+      viewStatement   <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_VIEW)
+      _               <- executeStatement(connection, viewStatement)
     } yield ()
   }
 
@@ -49,7 +49,7 @@ class SnowflakeManager extends LazyLogging {
     logger.info("Starting output port unprovisioning")
     for {
       connection <- getConnection
-      statement  <- queryBuilder.buildOutputPortStatement(descriptor, DELETE_TABLE)
+      statement  <- queryBuilder.buildOutputPortStatement(descriptor, DELETE_VIEW)
       _          <- executeStatement(connection, statement)
     } yield ()
   }

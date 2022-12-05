@@ -9,14 +9,15 @@ import org.scalatest.matchers.should.Matchers
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   CREATE_DB,
   CREATE_SCHEMA,
-  CREATE_TABLE,
   CREATE_TABLES,
+  CREATE_VIEW,
   DELETE_SCHEMA,
   DELETE_TABLES
 }
 
 class QueryHelperTest extends AnyFlatSpec with Matchers {
   val queryHelper = new QueryHelper
+
   "the createTableStatement method" should "format correctly the create table statement" in {
     val cols = List(
       ColumnSchemaSpec("name", DataType.TEXT, ConstraintType.NOCONSTRAINT),
@@ -31,44 +32,70 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
     )
   }
 
+  "the createViewStatement method" should "format correctly the create view statement" in {
+    val cols = List(
+      ColumnSchemaSpec("name", DataType.TEXT, ConstraintType.NOCONSTRAINT),
+      ColumnSchemaSpec("phone_number", DataType.TEXT, ConstraintType.NOCONSTRAINT),
+      ColumnSchemaSpec("id", DataType.TEXT, ConstraintType.NOCONSTRAINT),
+      ColumnSchemaSpec("age", DataType.NUMBER, ConstraintType.NOCONSTRAINT)
+    )
+
+    queryHelper.createViewStatement("my-test-view", "my-test", "your", "test_table", cols) should be(
+      "CREATE VIEW IF NOT EXISTS my-test.your.my-test-view AS (SELECT name,\nphone_number,\nid,\nage FROM my-test.your.test_table);"
+    )
+  }
+
   "buildOutputPortStatement method" should
-    "correctly retrieve fields from descriptor and build the create table statement" in {
+    "correctly retrieve fields from descriptor and build the create view statement" in {
       val yaml       = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_2.yml")
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
-      queryHelper.buildOutputPortStatement(descriptor.toOption.get, CREATE_TABLE).toOption.get should be(
-        "CREATE TABLE IF NOT EXISTS TEST_AIRBYTE.PUBLIC.SNOWFLAKE_TABLE (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
-          "phone NUMBER NULL);"
+      queryHelper.buildOutputPortStatement(descriptor.toOption.get, CREATE_VIEW).toOption
+        .getOrElse("Cannot Create View") should be(
+        "CREATE VIEW IF NOT EXISTS TEST_AIRBYTE.PUBLIC.snowflake_view AS (SELECT id,\nname,\nphone FROM TEST_AIRBYTE.PUBLIC.snowflake_table);"
       )
+
     }
 
-  "buildOutputPortStatement method" should "create a table even when database is not specified" in {
+  "buildOutputPortStatement method" should "create a view even when database is not specified" in {
     val yaml       = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_3.yml")
     val descriptor = ProvisioningRequestDescriptor(yaml)
 
-    queryHelper.buildOutputPortStatement(descriptor.toOption.get, CREATE_TABLE).toOption.get should be(
-      "CREATE TABLE IF NOT EXISTS MARKETING.PUBLIC.SNOWFLAKE_TABLE (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
-        "phone NUMBER NULL);"
+    queryHelper.buildOutputPortStatement(descriptor.toOption.get, CREATE_VIEW).toOption
+      .getOrElse("Cannot Create View") should be(
+      "CREATE VIEW IF NOT EXISTS MARKETING.PUBLIC.snowflake_view AS (SELECT id,\nname,\nphone FROM MARKETING.PUBLIC.snowflake_table);"
     )
   }
 
-  "buildOutputPortStatement method" should "create a table even when specific.schema is not specified" in {
+  "buildOutputPortStatement method" should "create a view even when specific.schema is not specified" in {
     val yaml       = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_4.yml")
     val descriptor = ProvisioningRequestDescriptor(yaml)
 
-    queryHelper.buildOutputPortStatement(descriptor.toOption.get, CREATE_TABLE).toOption.get should be(
-      "CREATE TABLE IF NOT EXISTS TEST_AIRBYTE.DPOWNERTEST_1.SNOWFLAKE_TABLE (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
-        "phone NUMBER NULL);"
+    queryHelper.buildOutputPortStatement(descriptor.toOption.get, CREATE_VIEW).toOption
+      .getOrElse("Cannot Create View") should be(
+      "CREATE VIEW IF NOT EXISTS TEST_AIRBYTE.DPOWNERTEST_1.snowflake_view AS (SELECT id,\n" + "name,\n" +
+        "phone FROM TEST_AIRBYTE.DPOWNERTEST_1.snowflake_table);"
     )
   }
 
-  "buildOutputPortStatement method" should "create a table even when schema and database are not specified" in {
+  "buildOutputPortStatement method" should "create a view even when schema and database are not specified" in {
     val yaml       = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_5.yml")
     val descriptor = ProvisioningRequestDescriptor(yaml)
 
-    queryHelper.buildOutputPortStatement(descriptor.toOption.get, CREATE_TABLE).toOption.get should be(
-      "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.SNOWFLAKE_TABLE (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
-        "phone NUMBER NULL);"
+    queryHelper.buildOutputPortStatement(descriptor.toOption.get, CREATE_VIEW).toOption
+      .getOrElse("Cannot Create View") should be(
+      "CREATE VIEW IF NOT EXISTS MARKETING.DPOWNERTEST_1.snowflake_view AS (SELECT id,\n" + "name,\n" +
+        "phone FROM MARKETING.DPOWNERTEST_1.snowflake_table);"
+    )
+  }
+
+  "buildOutputPortStatement method" should "create a view using the specified custom sql" in {
+    val yaml       = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_5_custom_view.yml")
+    val descriptor = ProvisioningRequestDescriptor(yaml)
+
+    queryHelper.buildOutputPortStatement(descriptor.toOption.get, CREATE_VIEW).toOption
+      .getOrElse("Cannot Create View") should be(
+      "CREATE VIEW IF NOT EXISTS TEST_AIRBYTE.PUBLIC.snowflake_view AS (SELECT * FROM TEST_AIRBYTE.PUBLIC.snowflake_table);"
     )
   }
 
@@ -77,8 +104,8 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6.yml")
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
-      queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_DB).toOption.get should
-        be("CREATE DATABASE IF NOT EXISTS TEST_AIRBYTE;")
+      queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_DB).toOption
+        .getOrElse("Cannot Create Database") should be("CREATE DATABASE IF NOT EXISTS TEST_AIRBYTE;")
     }
 
   "buildStorageStatement method" should
@@ -86,8 +113,8 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6.yml")
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
-      queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_SCHEMA).toOption.get should
-        be("CREATE SCHEMA IF NOT EXISTS TEST_AIRBYTE.PUBLIC;")
+      queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_SCHEMA).toOption
+        .getOrElse("Cannot Create Schema") should be("CREATE SCHEMA IF NOT EXISTS TEST_AIRBYTE.PUBLIC;")
     }
 
   "buildStorageStatement method" should
@@ -95,8 +122,8 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6_no_optional.yml")
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
-      queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_DB).toOption.get should
-        be("CREATE DATABASE IF NOT EXISTS MARKETING;")
+      queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_DB).toOption
+        .getOrElse("Cannot Create Database") should be("CREATE DATABASE IF NOT EXISTS MARKETING;")
     }
 
   "buildStorageStatement method" should
@@ -104,8 +131,8 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6_no_optional.yml")
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
-      queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_SCHEMA).toOption.get should
-        be("CREATE SCHEMA IF NOT EXISTS MARKETING.DPOWNERTEST_1;")
+      queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_SCHEMA).toOption
+        .getOrElse("Cannot Create Schema") should be("CREATE SCHEMA IF NOT EXISTS MARKETING.DPOWNERTEST_1;")
     }
 
   "buildStorageStatement method" should
@@ -113,7 +140,8 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6_no_optional.yml")
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
-      queryHelper.buildMultipleStatement(descriptor.toOption.get, CREATE_TABLES).toOption.get should be(List(
+      queryHelper.buildMultipleStatement(descriptor.toOption.get, CREATE_TABLES).toOption
+        .getOrElse("Cannot Create Tables") should be(List(
         "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE1 (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
           "phone NUMBER NULL);",
         "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE2 (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
@@ -126,8 +154,8 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6.yml")
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
-      queryHelper.buildStorageStatement(descriptor.toOption.get, DELETE_SCHEMA).toOption.get should
-        be("DROP SCHEMA IF EXISTS TEST_AIRBYTE.PUBLIC;")
+      queryHelper.buildStorageStatement(descriptor.toOption.get, DELETE_SCHEMA).toOption
+        .getOrElse("Cannot Delete Schema") should be("DROP SCHEMA IF EXISTS TEST_AIRBYTE.PUBLIC;")
     }
 
   "buildStorageStatement method" should
@@ -135,7 +163,8 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6_no_optional.yml")
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
-      queryHelper.buildMultipleStatement(descriptor.toOption.get, DELETE_TABLES).toOption.get should be(List(
+      queryHelper.buildMultipleStatement(descriptor.toOption.get, DELETE_TABLES).toOption
+        .getOrElse("Cannot Delete Tables") should be(List(
         "DROP TABLE IF EXISTS MARKETING.DPOWNERTEST_1.TABLE1;",
         "DROP TABLE IF EXISTS MARKETING.DPOWNERTEST_1.TABLE2;"
       ))

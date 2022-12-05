@@ -18,8 +18,8 @@ object OperationType extends Enumeration {
   val CREATE_TABLES: schema.OperationType.Value = Value("createTables")
   val DELETE_TABLES: schema.OperationType.Value = Value("deleteTables")
 
-  val CREATE_TABLE: schema.OperationType.Value      = Value("createTable")
-  val DELETE_TABLE: schema.OperationType.Value      = Value("deleteTable")
+  val CREATE_VIEW: schema.OperationType.Value       = Value("createView")
+  val DELETE_VIEW: schema.OperationType.Value       = Value("deleteView")
   val CREATE_ROLE: schema.OperationType.Value       = Value("createRole")
   val ASSIGN_PRIVILEGES: schema.OperationType.Value = Value("assignPrivileges")
   val ASSIGN_ROLE: schema.OperationType.Value       = Value("assignRole")

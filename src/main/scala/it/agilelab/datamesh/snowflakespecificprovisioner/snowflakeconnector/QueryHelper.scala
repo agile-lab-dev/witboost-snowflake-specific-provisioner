@@ -10,11 +10,11 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   CREATE_DB,
   CREATE_ROLE,
   CREATE_SCHEMA,
-  CREATE_TABLE,
   CREATE_TABLES,
+  CREATE_VIEW,
   DELETE_SCHEMA,
-  DELETE_TABLE,
   DELETE_TABLES,
+  DELETE_VIEW,
   OperationType
 }
 
@@ -64,13 +64,19 @@ class QueryHelper extends LazyLogging {
       dbName   = getDatabase(descriptor, component.specific)
       dbSchema = getDatabaseSchema(descriptor, component.specific)
       tableName <- getTableName(component)
-      schema    <- getTableSchema(component)
+      viewName  <- getViewName(component)
+      customView = getCustomView(component)
+      schema <- getTableSchema(component)
     } yield operation match {
       case CREATE_DB         => Right(createDatabaseStatement(dbName))
       case CREATE_SCHEMA     => Right(createSchemaStatement(dbName, dbSchema))
       case DELETE_SCHEMA     => Right(deleteSchemaStatement(dbName, dbSchema))
-      case CREATE_TABLE      => Right(createTableStatement(dbName, dbSchema, tableName, schema))
-      case DELETE_TABLE      => Right(deleteTableStatement(dbName, dbSchema, tableName))
+      case CREATE_VIEW       => customView match {
+          case customStatement if customStatement.isEmpty =>
+            Right(createViewStatement(viewName, dbName, dbSchema, tableName, schema))
+          case customStatement                            => Right(customStatement)
+        }
+      case DELETE_VIEW       => Right(deleteViewStatement(dbName, dbSchema, viewName))
       case CREATE_ROLE       => Right(createRoleStatement(tableName))
       case ASSIGN_PRIVILEGES => Right(assignPrivilegesToRoleStatement(dbName, dbSchema, tableName))
       case unsupportedOp     => Left(UnsupportedOperationError("Unsupported operation: " + unsupportedOp))
@@ -118,6 +124,18 @@ class QueryHelper extends LazyLogging {
   def assignRoleToUserStatement(tableName: String, users: Seq[String]): Seq[String] = users
     .map(user => s"GRANT ROLE ${tableName.toUpperCase}_ACCESS TO USER \"$user\";")
 
+  def createViewStatement(
+      viewName: String,
+      dbName: String,
+      dbSchema: String,
+      tableName: String,
+      schema: List[ColumnSchemaSpec]
+  ): String = s"CREATE VIEW IF NOT EXISTS $dbName.$dbSchema.$viewName AS " +
+    s"(SELECT ${schema.map(_.name).mkString(",\n")} FROM $dbName.$dbSchema.$tableName);"
+
+  def deleteViewStatement(dbName: String, dbSchema: String, viewName: String) =
+    s"DROP VIEW IF EXISTS $dbName.$dbSchema.$viewName"
+
   def getDatabase(descriptor: ProvisioningRequestDescriptor, specific: Json): String = {
     logger.info("Starting getting database from specific field...")
     specific.hcursor.downField("database").as[String] match {
@@ -154,6 +172,15 @@ class QueryHelper extends LazyLogging {
 
   def getTableName(component: ComponentDescriptor): Either[SnowflakeError with Product, String] = component.specific
     .hcursor.downField("tableName").as[String].left.map(error => GetTableNameError(error.message))
+
+  def getViewName(component: ComponentDescriptor): Either[GetViewNameError, String] = component.specific.hcursor
+    .downField("viewName").as[String].left.map(error => GetViewNameError(error.message))
+
+  def getCustomView(component: ComponentDescriptor): String =
+    component.specific.hcursor.downField("customView").as[String] match {
+      case Right(customView) => customView
+      case Left(_)           => ""
+    }
 
   def getTables(component: ComponentDescriptor): List[TableSpec] =
     component.specific.hcursor.downField("tables").as[List[TableSpec]] match {
