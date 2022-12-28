@@ -4,7 +4,6 @@ metadata:
   labels:
     app: {{ .Values.name }}
   name: {{ .Values.name }}
-  namespace: {{ .Values.name }}
 spec:
   replicas: 1
   selector:
@@ -21,17 +20,17 @@ spec:
       volumes:
         - name: application-conf
           configMap:
-            name: application.conf
+            name: snowflake.application.conf
             defaultMode: 420
         - name: logback-conf
           configMap:
-            name: logback.xml
+            name: snowflake.logback.xml
             defaultMode: 420
       containers:
         - name: {{ .Values.name }}
           image: {{ .Values.imageName }}:{{ .Values.version }}
           command: ["bin/datamesh-snowflakespecificprovisioner"]
-          args: ["-Dconfig.file=etc/app-conf/application.conf", "-Dlogback.configurationFile=etc/log-conf/logback.xml", "-Dconfig.override_with_env_vars=true"]
+          args: ["-Dconfig.file=etc/app-conf/snowflake.application.conf", "-Dlogback.configurationFile=etc/log-conf/snowflake.logback.xml", "-Dconfig.override_with_env_vars=true"]
           imagePullPolicy: {{ .Values.imagePullPolicy }}
 #          Removing readiness and liveliness because there's no such endpoint right now.
 #          To be fixed, totally a bad practice, but this is a mock.
