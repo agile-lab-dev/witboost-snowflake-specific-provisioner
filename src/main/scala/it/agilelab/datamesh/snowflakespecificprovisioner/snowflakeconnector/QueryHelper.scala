@@ -77,8 +77,8 @@ class QueryHelper extends LazyLogging {
           case customStatement                            => Right(customStatement)
         }
       case DELETE_VIEW       => Right(deleteViewStatement(dbName, dbSchema, viewName))
-      case CREATE_ROLE       => Right(createRoleStatement(tableName))
-      case ASSIGN_PRIVILEGES => Right(assignPrivilegesToRoleStatement(dbName, dbSchema, tableName))
+      case CREATE_ROLE       => Right(createRoleStatement(viewName))
+      case ASSIGN_PRIVILEGES => Right(assignPrivilegesToRoleStatement(dbName, dbSchema, viewName))
       case unsupportedOp     => Left(UnsupportedOperationError("Unsupported operation: " + unsupportedOp))
     }
   }.flatten
@@ -116,13 +116,13 @@ class QueryHelper extends LazyLogging {
   def deleteTablesStatement(dbName: String, dbSchema: String, tables: List[TableSpec]): Seq[String] = tables
     .map(table => deleteTableStatement(dbName, dbSchema, table.tableName))
 
-  def createRoleStatement(tableName: String) = s"CREATE ROLE IF NOT EXISTS ${tableName.toUpperCase}_ACCESS;"
+  def createRoleStatement(viewName: String) = s"CREATE ROLE IF NOT EXISTS ${viewName.toUpperCase}_ACCESS;"
 
-  def assignPrivilegesToRoleStatement(dbName: String, dbSchema: String, tableName: String) =
-    s"GRANT SELECT ON TABLE $dbName.$dbSchema.$tableName TO ROLE ${tableName.toUpperCase}_ACCESS;"
+  def assignPrivilegesToRoleStatement(dbName: String, dbSchema: String, viewName: String) =
+    s"GRANT SELECT ON VIEW $dbName.$dbSchema.$viewName TO ROLE ${viewName.toUpperCase}_ACCESS;"
 
-  def assignRoleToUserStatement(tableName: String, users: Seq[String]): Seq[String] = users
-    .map(user => s"GRANT ROLE ${tableName.toUpperCase}_ACCESS TO USER \"$user\";")
+  def assignRoleToUserStatement(viewName: String, users: Seq[String]): Seq[String] = users
+    .map(user => s"GRANT ROLE ${viewName.toUpperCase}_ACCESS TO USER \"$user\";")
 
   def createViewStatement(
       viewName: String,
