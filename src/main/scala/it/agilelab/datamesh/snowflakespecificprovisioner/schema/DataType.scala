@@ -12,6 +12,13 @@ object DataType extends Enumeration {
 
   implicit def stringToDataType(s: String): DataType = DataType.withName(s)
 
+  implicit def snowflakeTypeToDataType(s: String): DataType = s match {
+    case s if s.startsWith("VARCHAR") => DataType.TEXT
+    case s if s.startsWith("NUMBER")  => DataType.NUMBER
+    case s if s.startsWith("DATE")    => DataType.DATE
+    case s if s.startsWith("BOOLEAN") => DataType.BOOLEAN
+  }
+
   val TEXT: schema.DataType.Value    = Value("TEXT")
   val NUMBER: schema.DataType.Value  = Value("NUMBER")
   val DATE: schema.DataType.Value    = Value("DATE")

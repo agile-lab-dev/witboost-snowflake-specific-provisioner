@@ -170,4 +170,60 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       ))
     }
 
+  "getCustomDatabaseName method" should "correctly return the custom database name" in {
+    val customViewStatement = "CREATE VIEW IF NOT EXISTS myDb.mySchema.myView AS ..."
+    val customDatabaseName  = queryHelper.getCustomDatabaseName(customViewStatement).get
+
+    customDatabaseName should be("myDb")
+  }
+
+  "getCustomSchemaName method" should "correctly return the custom schema name" in {
+    val customViewStatement = "CREATE VIEW myDb.mySchema.myView AS ..."
+    val customSchemaName    = queryHelper.getCustomSchemaName(customViewStatement).get
+
+    customSchemaName should be("mySchema")
+  }
+
+  "getCustomViewDetails method" should "return an empty map in case of invalid custom view query" in {
+    val customViewStatement = "CREATE VIEW incompleteViewStatement AS ..."
+    val customViewDetails   = queryHelper.getCustomViewDetails(customViewStatement)
+
+    customViewDetails.size should be(0)
+  }
+
+  "getCustomDatabaseName method" should "return None in case of invalid custom view query" in {
+    val customViewStatement = "CREATE VIEW incompleteViewStatement AS ..."
+    val customDatabaseName  = queryHelper.getCustomDatabaseName(customViewStatement)
+
+    customDatabaseName should be(None)
+  }
+
+  "getCustomViewName method" should "return None in case of invalid custom view query" in {
+    val customViewStatement = "CREATE VIEW incompleteViewStatement AS ..."
+    val customViewName      = queryHelper.getCustomViewName(customViewStatement)
+
+    customViewName should be(None)
+  }
+
+  "mapUserToSnowflakeUser method" should "return the correct Snowflake user. Use case 1" in {
+    val user          = "user:marco.pisasale_agilelab.it"
+    val snowflakeUser = queryHelper.mapUserToSnowflakeUser(user)
+
+    snowflakeUser should be("marco.pisasale@agilelab.it")
+  }
+
+  "mapUserToSnowflakeUser method" should "return the correct Snowflake user. Use case 2" in {
+    val user          = "marco.pisasale@agilelab.it"
+    val snowflakeUser = queryHelper.mapUserToSnowflakeUser(user)
+
+    snowflakeUser should be("marco.pisasale@agilelab.it")
+  }
+
+  "mapUserToSnowflakeUser method" should "return the correct Snowflake user. Use case 3" in {
+    val user          = "user:marco_pisasale_agilelab.it"
+    val snowflakeUser = queryHelper.mapUserToSnowflakeUser(user)
+
+    snowflakeUser should be("marco_pisasale@agilelab.it")
+  }
+
 }
