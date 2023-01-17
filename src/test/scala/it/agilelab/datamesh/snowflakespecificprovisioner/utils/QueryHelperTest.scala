@@ -209,21 +209,21 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
     val user          = "user:marco.pisasale_agilelab.it"
     val snowflakeUser = queryHelper.mapUserToSnowflakeUser(user)
 
-    snowflakeUser should be("marco.pisasale@agilelab.it")
+    snowflakeUser should be("MARCO.PISASALE@AGILELAB.IT")
   }
 
   "mapUserToSnowflakeUser method" should "return the correct Snowflake user. Use case 2" in {
     val user          = "marco.pisasale@agilelab.it"
     val snowflakeUser = queryHelper.mapUserToSnowflakeUser(user)
 
-    snowflakeUser should be("marco.pisasale@agilelab.it")
+    snowflakeUser should be("MARCO.PISASALE@AGILELAB.IT")
   }
 
   "mapUserToSnowflakeUser method" should "return the correct Snowflake user. Use case 3" in {
     val user          = "user:marco_pisasale_agilelab.it"
     val snowflakeUser = queryHelper.mapUserToSnowflakeUser(user)
 
-    snowflakeUser should be("marco_pisasale@agilelab.it")
+    snowflakeUser should be("MARCO_PISASALE@AGILELAB.IT")
   }
 
 }

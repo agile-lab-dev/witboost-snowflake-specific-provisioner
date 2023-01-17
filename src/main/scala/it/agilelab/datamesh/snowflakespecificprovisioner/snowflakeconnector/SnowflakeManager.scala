@@ -45,7 +45,8 @@ class SnowflakeManager extends LazyLogging {
       _               <- executeStatement(connection, schemaStatement)
       viewStatement   <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_VIEW)
       _               <- executeStatement(connection, viewStatement)
-      _               <- validateSchema(connection, descriptor) match {
+      _ = executeUpdateAcl(descriptor, Seq(descriptor.dataProduct.dataProductOwner))
+      _ <- validateSchema(connection, descriptor) match {
         case Right(validationResult) if validationResult => Right(())
         case _                                           =>
           unprovisionOutputPort(descriptor)

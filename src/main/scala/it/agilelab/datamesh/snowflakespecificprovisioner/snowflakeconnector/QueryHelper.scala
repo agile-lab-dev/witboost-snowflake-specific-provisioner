@@ -102,9 +102,13 @@ class QueryHelper extends LazyLogging {
     logger.info("Starting building refs statements")
     for {
       component <- getComponent(descriptor)
-      tableName <- getTableName(component)
+      customViewStatement = getCustomViewStatement(component)
+      viewName <- getCustomViewName(customViewStatement) match {
+        case Some(customViewName) => Right(customViewName)
+        case _                    => getViewName(component)
+      }
     } yield operation match {
-      case ASSIGN_ROLE   => Right(assignRoleToUserStatement(tableName, refs))
+      case ASSIGN_ROLE   => Right(assignRoleToUserStatement(viewName, refs))
       case unsupportedOp => Left(UnsupportedOperationError("Unsupported operation: " + unsupportedOp))
     }
   }.flatten
@@ -139,7 +143,7 @@ class QueryHelper extends LazyLogging {
     .map(user => s"GRANT ROLE ${viewName.toUpperCase}_ACCESS TO USER \"${mapUserToSnowflakeUser(user)}\";")
 
   def mapUserToSnowflakeUser(user: String): String = {
-    val cleanUser       = user.replace("user:", "")
+    val cleanUser       = user.replace("user:", "").toUpperCase
     val underscoreIndex = cleanUser.lastIndexOf("_")
     if (underscoreIndex.equals(-1)) { cleanUser }
     else { cleanUser.substring(0, underscoreIndex) + "@" + cleanUser.substring(underscoreIndex + 1) }

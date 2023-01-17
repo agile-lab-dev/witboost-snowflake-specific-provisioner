@@ -17,6 +17,7 @@ final case class DataProductDescriptor(
     version: String,
     environment: String,
     domain: String,
+    dataProductOwner: String,
     header: Json,
     components: List[ComponentDescriptor]
 ) extends YamlPrinter {
@@ -63,6 +64,9 @@ object DataProductDescriptor {
   private def getVersion(header: Json) = header.hcursor.downField("version").as[String].left
     .map(_ => s"cannot parse Data Product version for ${header.spaces2}")
 
+  private def getDataProductOwner(header: Json) = header.hcursor.downField("dataProductOwner").as[String].left
+    .map(_ => s"cannot parse Data Product owner for ${header.spaces2}")
+
   def apply(yaml: String): Either[String, DataProductDescriptor] = parser.parse(yaml) match {
     case Left(err)   => Left(err.getMessage())
     case Right(json) =>
@@ -74,8 +78,9 @@ object DataProductDescriptor {
         domain      <- getDomain(header)
         name        <- getName(header)
         version     <- getVersion(header)
+        dpOwner     <- getDataProductOwner(header)
         components  <- getComponentsDescriptor(environment, header)
-      } yield DataProductDescriptor(id, name, version, environment, domain, header, components)
+      } yield DataProductDescriptor(id, name, version, environment, domain, dpOwner, header, components)
 
       maybeDp match {
         case Left(errorMsg) => Left(errorMsg)
