@@ -5,19 +5,24 @@ import io.circe.Json
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.{ComponentDescriptor, ProvisioningRequestDescriptor}
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, TableSpec}
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
-  ASSIGN_PRIVILEGES,
   ASSIGN_ROLE,
   CREATE_DB,
   CREATE_ROLE,
   CREATE_SCHEMA,
   CREATE_TABLES,
   CREATE_VIEW,
+  DELETE_ROLE,
   DELETE_SCHEMA,
   DELETE_TABLES,
   DELETE_VIEW,
   DESCRIBE_VIEW,
-  OperationType
+  OperationType,
+  SELECT_ON_VIEW,
+  USAGE_ON_DB,
+  USAGE_ON_SCHEMA,
+  USAGE_ON_WH
 }
+import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.warehouse
 
 class QueryHelper extends LazyLogging {
 
@@ -75,22 +80,27 @@ class QueryHelper extends LazyLogging {
         case Some(customViewName) => Right(customViewName)
         case _                    => getViewName(component)
       }
+      roleName            = buildRoleName(dbName, schemaName, viewName)
       tableName <- getTableName(component)
-      schema <- getTableSchema(component)
+      schema    <- getTableSchema(component)
     } yield operation match {
-      case CREATE_DB         => Right(createDatabaseStatement(dbName))
-      case CREATE_SCHEMA     => Right(createSchemaStatement(dbName, schemaName))
-      case DELETE_SCHEMA     => Right(deleteSchemaStatement(dbName, schemaName))
-      case CREATE_VIEW       => customViewStatement match {
+      case CREATE_DB       => Right(createDatabaseStatement(dbName))
+      case CREATE_SCHEMA   => Right(createSchemaStatement(dbName, schemaName))
+      case DELETE_SCHEMA   => Right(deleteSchemaStatement(dbName, schemaName))
+      case CREATE_VIEW     => customViewStatement match {
           case customStatement if customStatement.isEmpty =>
             Right(createViewStatement(viewName, dbName, schemaName, tableName, schema))
           case customStatement                            => Right(customStatement)
         }
-      case DELETE_VIEW       => Right(deleteViewStatement(dbName, schemaName, viewName))
-      case CREATE_ROLE       => Right(createRoleStatement(viewName))
-      case ASSIGN_PRIVILEGES => Right(assignPrivilegesToRoleStatement(dbName, schemaName, viewName))
-      case DESCRIBE_VIEW     => Right(describeView(dbName, schemaName, viewName))
-      case unsupportedOp     => Left(UnsupportedOperationError("Unsupported operation: " + unsupportedOp))
+      case DELETE_VIEW     => Right(deleteViewStatement(dbName, schemaName, viewName))
+      case CREATE_ROLE     => Right(createRoleStatement(roleName))
+      case DELETE_ROLE     => Right(deleteRoleStatement(roleName))
+      case USAGE_ON_WH     => Right(grantUsageStatement("warehouse", warehouse, roleName))
+      case USAGE_ON_DB     => Right(grantUsageStatement("database", dbName, roleName))
+      case USAGE_ON_SCHEMA => Right(grantUsageStatement("schema", s"$dbName.$schemaName", roleName))
+      case SELECT_ON_VIEW  => Right(grantSelectOnViewStatement(dbName, schemaName, viewName, roleName))
+      case DESCRIBE_VIEW   => Right(describeView(dbName, schemaName, viewName))
+      case unsupportedOp   => Left(UnsupportedOperationError("Unsupported operation: " + unsupportedOp))
     }
   }.flatten
 
@@ -103,12 +113,21 @@ class QueryHelper extends LazyLogging {
     for {
       component <- getComponent(descriptor)
       customViewStatement = getCustomViewStatement(component)
+      dbName              = getCustomDatabaseName(customViewStatement) match {
+        case Some(customDbName) => customDbName
+        case _                  => getDatabaseName(descriptor, component.specific)
+      }
+      schemaName          = getCustomSchemaName(customViewStatement) match {
+        case Some(customSchemaName) => customSchemaName
+        case _                      => getSchemaName(descriptor, component.specific)
+      }
       viewName <- getCustomViewName(customViewStatement) match {
         case Some(customViewName) => Right(customViewName)
         case _                    => getViewName(component)
       }
+      roleName            = buildRoleName(dbName, schemaName, viewName)
     } yield operation match {
-      case ASSIGN_ROLE   => Right(assignRoleToUserStatement(viewName, refs))
+      case ASSIGN_ROLE   => Right(assignRoleToUserStatement(roleName, refs))
       case unsupportedOp => Left(UnsupportedOperationError("Unsupported operation: " + unsupportedOp))
     }
   }.flatten
@@ -134,13 +153,18 @@ class QueryHelper extends LazyLogging {
   def deleteTablesStatement(dbName: String, schemaName: String, tables: List[TableSpec]): Seq[String] = tables
     .map(table => deleteTableStatement(dbName, schemaName, table.tableName))
 
-  def createRoleStatement(viewName: String) = s"CREATE ROLE IF NOT EXISTS ${viewName.toUpperCase}_ACCESS;"
+  def createRoleStatement(roleName: String) = s"CREATE ROLE IF NOT EXISTS $roleName;"
 
-  def assignPrivilegesToRoleStatement(dbName: String, schemaName: String, viewName: String) =
-    s"GRANT SELECT ON VIEW $dbName.$schemaName.$viewName TO ROLE ${viewName.toUpperCase}_ACCESS;"
+  def grantUsageStatement(resource: String, resourceName: String, roleName: String): String =
+    s"GRANT USAGE ON $resource $resourceName TO ROLE $roleName;"
 
-  def assignRoleToUserStatement(viewName: String, users: Seq[String]): Seq[String] = users
-    .map(user => s"GRANT ROLE ${viewName.toUpperCase}_ACCESS TO USER \"${mapUserToSnowflakeUser(user)}\";")
+  def grantSelectOnViewStatement(dbName: String, schemaName: String, viewName: String, roleName: String): String =
+    s"GRANT SELECT ON VIEW $dbName.$schemaName.$viewName TO ROLE $roleName;"
+
+  def deleteRoleStatement(roleName: String): String = s"DROP ROLE IF EXISTS $roleName;"
+
+  def assignRoleToUserStatement(roleName: String, users: Seq[String]): Seq[String] = users
+    .map(user => s"GRANT ROLE $roleName TO USER \"${mapUserToSnowflakeUser(user)}\";")
 
   def mapUserToSnowflakeUser(user: String): String = {
     val cleanUser       = user.replace("user:", "").toUpperCase
@@ -148,6 +172,9 @@ class QueryHelper extends LazyLogging {
     if (underscoreIndex.equals(-1)) { cleanUser }
     else { cleanUser.substring(0, underscoreIndex) + "@" + cleanUser.substring(underscoreIndex + 1) }
   }
+
+  def buildRoleName(dbName: String, schemaName: String, viewName: String): String =
+    s"${dbName}_${schemaName}_${viewName}_ACCESS"
 
   def createViewStatement(
       viewName: String,

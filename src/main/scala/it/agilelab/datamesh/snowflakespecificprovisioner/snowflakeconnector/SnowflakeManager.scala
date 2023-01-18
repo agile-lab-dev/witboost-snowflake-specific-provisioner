@@ -15,16 +15,20 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfi
   warehouse
 }
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
-  ASSIGN_PRIVILEGES,
   ASSIGN_ROLE,
   CREATE_DB,
   CREATE_ROLE,
   CREATE_SCHEMA,
   CREATE_TABLES,
   CREATE_VIEW,
+  DELETE_ROLE,
   DELETE_TABLES,
   DELETE_VIEW,
-  DESCRIBE_VIEW
+  DESCRIBE_VIEW,
+  SELECT_ON_VIEW,
+  USAGE_ON_DB,
+  USAGE_ON_SCHEMA,
+  USAGE_ON_WH
 }
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -60,9 +64,11 @@ class SnowflakeManager extends LazyLogging {
   def unprovisionOutputPort(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
     logger.info("Starting output port unprovisioning")
     for {
-      connection <- getConnection
-      statement  <- queryBuilder.buildOutputPortStatement(descriptor, DELETE_VIEW)
-      _          <- executeStatement(connection, statement)
+      connection          <- getConnection
+      deleteViewStatement <- queryBuilder.buildOutputPortStatement(descriptor, DELETE_VIEW)
+      _                   <- executeStatement(connection, deleteViewStatement)
+      deleteRoleStatement <- queryBuilder.buildOutputPortStatement(descriptor, DELETE_ROLE)
+      _                   <- executeStatement(connection, deleteRoleStatement)
     } yield ()
   }
 
@@ -72,13 +78,19 @@ class SnowflakeManager extends LazyLogging {
   ): Either[SnowflakeError with Product, Unit] = {
     logger.info("Starting executing executeUpdateAcl for users: {}...", refs.mkString(", "))
     for {
-      connection                <- getConnection
-      createRoleStatement       <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_ROLE)
-      _                         <- executeStatement(connection, createRoleStatement)
-      assignPrivilegesStatement <- queryBuilder.buildOutputPortStatement(descriptor, ASSIGN_PRIVILEGES)
-      _                         <- executeStatement(connection, assignPrivilegesStatement)
-      assignRoleStatements      <- queryBuilder.buildRefsStatement(descriptor, refs, ASSIGN_ROLE)
-      _                         <- executeMultipleStatement(connection, assignRoleStatements)
+      connection             <- getConnection
+      createRoleStatement    <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_ROLE)
+      _                      <- executeStatement(connection, createRoleStatement)
+      usageOnWhStatement     <- queryBuilder.buildOutputPortStatement(descriptor, USAGE_ON_WH)
+      _                      <- executeStatement(connection, usageOnWhStatement)
+      usageOnDbStatement     <- queryBuilder.buildOutputPortStatement(descriptor, USAGE_ON_DB)
+      _                      <- executeStatement(connection, usageOnDbStatement)
+      usageOnSchemaStatement <- queryBuilder.buildOutputPortStatement(descriptor, USAGE_ON_SCHEMA)
+      _                      <- executeStatement(connection, usageOnSchemaStatement)
+      selectOnViewStatement  <- queryBuilder.buildOutputPortStatement(descriptor, SELECT_ON_VIEW)
+      _                      <- executeStatement(connection, selectOnViewStatement)
+      assignRoleStatements   <- queryBuilder.buildRefsStatement(descriptor, refs, ASSIGN_ROLE)
+      _                      <- executeMultipleStatement(connection, assignRoleStatements)
     } yield ()
   }
 
