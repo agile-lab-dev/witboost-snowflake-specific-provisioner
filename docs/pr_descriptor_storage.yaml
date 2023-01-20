@@ -39,22 +39,21 @@ dataProduct:
             schema:
             - name: id
               dataType: TEXT
-              constraint: PRIMARY KEY
+              constraint: PRIMARY_KEY
             - name: name
               dataType: TEXT
-              constraint: NO CONSTRAINT
             - name: phone
               dataType: NUMBER
-              constraint: NULLABLE
+              constraint: NULL
           - tableName: table2
             schema:
               - name: id
                 dataType: TEXT
-                constraint: PRIMARY KEY
+                constraint: PRIMARY_KEY
               - name: name
                 dataType: TEXT
-                constraint: NO CONSTRAINT
+                constraint: NOT_NULL
               - name: phone
                 dataType: NUMBER
-                constraint: NULLABLE
+                constraint: UNIQUE
 componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

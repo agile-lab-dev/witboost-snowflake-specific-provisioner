@@ -27,8 +27,7 @@ stages:
   - checkFormatting
   - test
   - build
-  - deploy-dev
-  - deploy-demo
+#  - deploy-dev
 
 checkFormatting:
   stage: checkFormatting
@@ -65,44 +64,23 @@ build:
     reports:
       dotenv: vars.env
 
-Deploy Dev:
-  image: dtzar/helm-kubectl
-  stage: deploy-dev
-  environment: development
-  before_script:
-    - helm plugin install https://github.com/jkroepke/helm-secrets --version v3.11.0
-    - apk add --no-cache vault libcap && setcap cap_ipc_lock= /usr/sbin/vault
-  script:
-    - echo ${VERSION}
-    - echo ${COMMIT}
-    - cd k8s
-    - chmod +x deploy.sh
-    - ./deploy.sh
-  needs:
-    - build
-  tags:
-    - development-env
-  only:
-    - master
-
-Deploy Demo:
-  image: dtzar/helm-kubectl
-  stage: deploy-demo
-  environment: demo
-  before_script:
-    - helm plugin install https://github.com/jkroepke/helm-secrets --version v3.11.0
-    - apk add --no-cache vault libcap && setcap cap_ipc_lock= /usr/sbin/vault
-  script:
-    - echo ${VERSION}
-    - echo ${COMMIT}
-    - cd k8s
-    - chmod +x deploy.sh
-    - ./deploy.sh
-  needs:
-    - build
-    - Deploy Dev
-  tags:
-    - demo-env
-  only:
-    - master
-  when: manual
+#Deploy Dev:
+#  image: dtzar/helm-kubectl
+#  stage: deploy-dev
+#  environment: development
+#  before_script:
+#    - helm plugin install https://github.com/jkroepke/helm-secrets --version v3.11.0
+#    - apk add --no-cache vault libcap && setcap cap_ipc_lock= /usr/sbin/vault
+#  script:
+#    - echo ${VERSION}
+#    - echo ${COMMIT}
+#    - cd k8s
+#    - chmod +x deploy.sh
+#    - ./deploy.sh
+#  needs:
+#    - build
+#  tags:
+#    - development-env
+#  only:
+#    - master
+#

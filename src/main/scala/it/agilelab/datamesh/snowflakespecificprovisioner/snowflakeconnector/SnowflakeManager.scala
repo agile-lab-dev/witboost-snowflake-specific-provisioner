@@ -5,7 +5,7 @@ import cats.implicits.toTraverseOps
 import com.typesafe.scalalogging.LazyLogging
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants.{OUTPUT_PORT, STORAGE}
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
-import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, ConstraintType, DataType}
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, DataType}
 import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.{
   account,
   jdbcUrl,
@@ -215,8 +215,7 @@ class SnowflakeManager extends LazyLogging {
       val resultList    = (1 to columnCount).map { i =>
         ColumnSchemaSpec(
           schemaFromCustomView.getMetaData.getColumnName(i),
-          DataType.snowflakeTypeToDataType(schemaFromCustomView.getMetaData.getColumnTypeName(i)),
-          ConstraintType.NOCONSTRAINT
+          DataType.snowflakeTypeToDataType(schemaFromCustomView.getMetaData.getColumnTypeName(i))
         )
       }
       val mappedResults = resultList.map(x => (x.name.toUpperCase(), x.dataType))

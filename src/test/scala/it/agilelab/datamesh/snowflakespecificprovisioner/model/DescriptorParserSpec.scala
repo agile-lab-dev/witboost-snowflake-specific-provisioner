@@ -77,4 +77,20 @@ class DescriptorParserSpec extends AnyFlatSpec {
     dp.left.value should be(a[NonEmptyList[_]])
   }
 
+  "Parsing a well formed storage component descriptor" should "return a correct DataProductDescriptor" in {
+    val yaml = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6.yml")
+
+    val prDescr = ProvisioningRequestDescriptor(yaml)
+
+    val dpDescr = prDescr.toOption.get.dataProduct
+
+    println(dpDescr.components)
+
+    val backYaml = dpDescr.toString
+
+    val backDpDescr = DataProductDescriptor(backYaml).toOption.get
+
+    dpDescr should be(backDpDescr)
+  }
+
 }

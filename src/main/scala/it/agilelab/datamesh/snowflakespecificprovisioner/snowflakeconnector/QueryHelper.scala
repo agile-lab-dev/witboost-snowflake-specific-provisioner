@@ -251,7 +251,9 @@ class QueryHelper extends LazyLogging {
   def getTables(component: ComponentDescriptor): List[TableSpec] =
     component.specific.hcursor.downField("tables").as[List[TableSpec]] match {
       case Right(tables) => tables
-      case Left(_)       => List[TableSpec]()
+      case Left(error)   =>
+        logger.error(error.toString())
+        List[TableSpec]()
     }
 
   def getComponent(

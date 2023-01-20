@@ -14,9 +14,7 @@ object ConstraintType extends Enumeration {
 
   implicit def constraintTypeToString(c: ConstraintType): String = c.toString
 
-  val NULL: schema.ConstraintType.Value         = Value("NULLABLE")
-  val NOT_NULL: schema.ConstraintType.Value     = Value("NOT NULL")
-  val PRIMARY_KEY: schema.ConstraintType.Value  = Value("PRIMARY KEY")
-  val UNIQUE: schema.ConstraintType.Value       = Value("UNIQUE")
-  val NOCONSTRAINT: schema.ConstraintType.Value = Value("NO CONSTRAINT")
+  val NOT_NULL: schema.ConstraintType.Value    = Value("NOT_NULL")
+  val PRIMARY_KEY: schema.ConstraintType.Value = Value("PRIMARY_KEY")
+  val UNIQUE: schema.ConstraintType.Value      = Value("UNIQUE")
 }

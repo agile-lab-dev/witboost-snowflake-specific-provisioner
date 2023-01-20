@@ -5,12 +5,15 @@ import io.circe.generic.semiauto.deriveDecoder
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.ConstraintType.ConstraintType
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.DataType.DataType
 
-case class ColumnSchemaSpec(name: String, dataType: DataType, constraint: ConstraintType) {
+case class ColumnSchemaSpec(name: String, dataType: DataType, constraint: Option[ConstraintType] = None) {
 
   def toColumnStatement: String = constraint match {
-    case ConstraintType.NOCONSTRAINT => s"$name $dataType"
-    case ConstraintType.NULL         => s"$name $dataType NULL"
-    case _                           => s"$name $dataType $constraint"
+    case Some(value) => value match {
+        case ConstraintType.NOT_NULL    => s"$name $dataType NOT NULL"
+        case ConstraintType.PRIMARY_KEY => s"$name $dataType PRIMARY KEY"
+        case ConstraintType.UNIQUE      => s"$name $dataType UNIQUE"
+      }
+    case _           => s"$name $dataType"
   }
 }
 

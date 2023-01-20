@@ -2,7 +2,7 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.utils
 
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.test.getTestResourceAsString
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
-import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, ConstraintType, DataType}
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, DataType}
 import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.QueryHelper
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -20,10 +20,10 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
 
   "the createTableStatement method" should "format correctly the create table statement" in {
     val cols = List(
-      ColumnSchemaSpec("name", DataType.TEXT, ConstraintType.NOCONSTRAINT),
-      ColumnSchemaSpec("phone_number", DataType.TEXT, ConstraintType.NOCONSTRAINT),
-      ColumnSchemaSpec("id", DataType.TEXT, ConstraintType.NOCONSTRAINT),
-      ColumnSchemaSpec("age", DataType.NUMBER, ConstraintType.NOCONSTRAINT)
+      ColumnSchemaSpec("name", DataType.TEXT),
+      ColumnSchemaSpec("phone_number", DataType.TEXT),
+      ColumnSchemaSpec("id", DataType.TEXT),
+      ColumnSchemaSpec("age", DataType.NUMBER)
     )
 
     queryHelper.createTableStatement("my-test", "your", "test_table", cols) should be(
@@ -34,10 +34,10 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
 
   "the createViewStatement method" should "format correctly the create view statement" in {
     val cols = List(
-      ColumnSchemaSpec("name", DataType.TEXT, ConstraintType.NOCONSTRAINT),
-      ColumnSchemaSpec("phone_number", DataType.TEXT, ConstraintType.NOCONSTRAINT),
-      ColumnSchemaSpec("id", DataType.TEXT, ConstraintType.NOCONSTRAINT),
-      ColumnSchemaSpec("age", DataType.NUMBER, ConstraintType.NOCONSTRAINT)
+      ColumnSchemaSpec("name", DataType.TEXT),
+      ColumnSchemaSpec("phone_number", DataType.TEXT),
+      ColumnSchemaSpec("id", DataType.TEXT),
+      ColumnSchemaSpec("age", DataType.NUMBER)
     )
 
     queryHelper.createViewStatement("my-test-view", "my-test", "your", "test_table", cols) should be(
@@ -143,9 +143,9 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       queryHelper.buildMultipleStatement(descriptor.toOption.get, CREATE_TABLES).toOption
         .getOrElse("Cannot Create Tables") should be(List(
         "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE1 (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
-          "phone NUMBER NULL);",
-        "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE2 (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
-          "phone NUMBER NULL);"
+          "phone NUMBER);",
+        "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE2 (id TEXT PRIMARY KEY,\n" + "name TEXT NOT NULL,\n" +
+          "phone NUMBER UNIQUE);"
       ))
     }
 
