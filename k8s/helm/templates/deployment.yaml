@@ -32,22 +32,22 @@ spec:
           command: ["bin/datamesh-snowflakespecificprovisioner"]
           args: ["-Dconfig.file=etc/app-conf/snowflake.application.conf", "-Dlogback.configurationFile=etc/log-conf/snowflake.logback.xml", "-Dconfig.override_with_env_vars=true"]
           imagePullPolicy: {{ .Values.imagePullPolicy }}
-#          Removing readiness and liveliness because there's no such endpoint right now.
-#          To be fixed, totally a bad practice, but this is a mock.
-#          readinessProbe:
-#            httpGet:
-#              path: /ready
-#              port: management
-#            periodSeconds: 10
-#            failureThreshold: 5
-#            initialDelaySeconds: 30
-#          livenessProbe:
-#            httpGet:
-#              path: "/alive"
-#              port: management
-#            periodSeconds: 10
-#            failureThreshold: 5
-#            initialDelaySeconds: 30
+          #          Removing readiness and liveliness because there's no such endpoint right now.
+          #          To be fixed, totally a bad practice, but this is a mock.
+          #          readinessProbe:
+          #            httpGet:
+          #              path: /ready
+          #              port: management
+          #            periodSeconds: 10
+          #            failureThreshold: 5
+          #            initialDelaySeconds: 30
+          #          livenessProbe:
+          #            httpGet:
+          #              path: "/alive"
+          #              port: management
+          #            periodSeconds: 10
+          #            failureThreshold: 5
+          #            initialDelaySeconds: 30
           ports:
             - name: management
               containerPort: 8558
@@ -64,19 +64,37 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: SNOWFLAKE_USER
-              value: {{ .Values.snowflake.user }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-{{ .Chart.Name }}-secrets
+                  key: SNOWFLAKE_USER
             - name: SNOWFLAKE_PASSWORD
-              value: {{ .Values.snowflake.password }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-{{ .Chart.Name }}-secrets
+                  key: SNOWFLAKE_PASSWORD
             - name: SNOWFLAKE_ROLE
-              value: {{ .Values.snowflake.role }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-{{ .Chart.Name }}-secrets
+                  key: SNOWFLAKE_ROLE
             - name: SNOWFLAKE_ACCOUNT
-              value: {{ .Values.snowflake.account }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-{{ .Chart.Name }}-secrets
+                  key: SNOWFLAKE_ACCOUNT
             - name: SNOWFLAKE_WAREHOUSE
-              value: {{ .Values.snowflake.warehouse }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-{{ .Chart.Name }}-secrets
+                  key: SNOWFLAKE_WAREHOUSE
             - name: JDBC_URL
-              value: {{ .Values.snowflake.jdbcUrl }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-{{ .Chart.Name }}-secrets
+                  key: JDBC_URL
           volumeMounts:
-          - name: application-conf
-            mountPath: /opt/docker/etc/app-conf
-          - name: logback-conf
-            mountPath: /opt/docker/etc/log-conf
+            - name: application-conf
+              mountPath: /opt/docker/etc/app-conf
+            - name: logback-conf
+              mountPath: /opt/docker/etc/log-conf

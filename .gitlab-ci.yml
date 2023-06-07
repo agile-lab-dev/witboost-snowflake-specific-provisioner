@@ -63,6 +63,8 @@ build:
   artifacts:
     reports:
       dotenv: vars.env
+  only:
+    - master
 
 #Deploy Dev:
 #  image: dtzar/helm-kubectl

@@ -3,11 +3,3 @@
 # Declare variables to be passed into your templates.
 
 imagePullPolicy: Always
-
-snowflake:
-  user: !vault k8s/snowflake/snowflake_user#value
-  password: !vault k8s/snowflake/snowflake_password#value
-  role: !vault k8s/snowflake/snowflake_role#value
-  account: !vault k8s/snowflake/snowflake_account#value
-  warehouse: !vault k8s/snowflake/snowflake_warehouse#value
-  jdbcUrl: !vault k8s/snowflake/snowflake_base_url#value
