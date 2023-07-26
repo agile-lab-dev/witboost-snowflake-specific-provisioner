@@ -1,3 +1,11 @@
+include:
+  - project: 'AgileFactory/Witboost.Mesh/witboost.Mesh.CI'
+    ref: 'main'
+    file: 'common/witboost.helm.gitlab-ci.yml'
+  - project: 'AgileFactory/Witboost.Mesh/witboost.Mesh.CI'
+    ref: 'main'
+    file: 'common/witboost.downstream.gitlab-ci.yml'
+
 image: ubuntu:20.04
 
 before_script:
@@ -24,10 +32,35 @@ cache:
     - "sbt-cache/target"
 
 stages:
+  - setup
   - checkFormatting
   - test
   - build
-#  - deploy-dev
+  - package
+
+setup:
+  stage: setup
+  extends: .witboost.helm.base-job
+  cache: []
+  before_script: []
+  script:
+    - !reference [.witboost.helm.clone-scripts, script]
+    - !reference [.witboost.helm.get-version, script]
+    - echo "VERSION=${VERSION}" >> vars.env
+  artifacts:
+    reports:
+      dotenv: vars.env
+
+witboost.helm.checks:
+  stage: checkFormatting
+  extends: .witboost.helm.base-job
+  before_script: []
+  cache: []
+  script:
+    - !reference [.witboost.helm.clone-scripts, script]
+    - !reference [.witboost.helm.checks, script]
+  variables:
+    CHART_FOLDER: helm
 
 checkFormatting:
   stage: checkFormatting
@@ -66,23 +99,12 @@ build:
   only:
     - master
 
-#Deploy Dev:
-#  image: dtzar/helm-kubectl
-#  stage: deploy-dev
-#  environment: development
-#  before_script:
-#    - helm plugin install https://github.com/jkroepke/helm-secrets --version v3.11.0
-#    - apk add --no-cache vault libcap && setcap cap_ipc_lock= /usr/sbin/vault
-#  script:
-#    - echo ${VERSION}
-#    - echo ${COMMIT}
-#    - cd k8s
-#    - chmod +x deploy.sh
-#    - ./deploy.sh
-#  needs:
-#    - build
-#  tags:
-#    - development-env
-#  only:
-#    - master
-#
+witboost.helm.deploy:
+  stage: package
+  before_script: []
+  cache: []
+  extends: .witboost.helm.deploy
+  only:
+    - master
+    - tags
+    - /(^release\/([0-9]+)\.([0-9]+))/

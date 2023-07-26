@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+{{- include "snowflake-specific-provisioner.labels" . | nindent 4 }}
+  name: {{ template "snowflake-specific-provisioner.fullname" . }}-config
+data:
+  application.conf: |
+  {{- if .Values.configOverride -}}
+  {{- .Values.configOverride | nindent 4 }}
+  {{- else -}}
+  {{- .Files.Get "files/application.conf" | nindent 4 }}
+  {{ end }}
+  logback.xml: |
+  {{- if .Values.logbackOverride -}}
+  {{- .Values.logbackOverride | nindent 4 }}
+  {{- else -}}
+  {{- .Files.Get "files/logback.xml" | nindent 4 }}
+  {{ end }}

@@ -1,0 +1,35 @@
+# Default values for snowflake-specific-provisioner.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  # -- Image repository
+  registry: registry.gitlab.com/agilefactory/witboost.mesh/provisioning/sandbox/witboost.mesh.provisioning.sandbox.snowflake-specific-provisioner
+  # -- Image tag
+  tag: latest
+  # -- The imagePullPolicy for a container and the tag of the image affect when the kubelet attempts to pull (download) the specified image.
+  pullPolicy: Always
+
+# -- Docker Registry Secret name used to access a private repo
+dockerRegistrySecretName: regcred
+
+# -- security context spec
+securityContext:
+  runAsUser: 1001
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+
+# -- readiness probe spec
+readinessProbe: {}
+
+# -- liveliness probe spec
+livenessProbe: {}
+
+# -- resources spec
+resources: {}
+
+# -- This configuration allows you to override the application.conf file
+configOverride:
+
+# -- This configuration allows you to override the logback.xml file
+logbackOverride:

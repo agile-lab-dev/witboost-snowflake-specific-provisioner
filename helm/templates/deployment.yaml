@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ template "snowflake-specific-provisioner.name" . }}
+{{- include "snowflake-specific-provisioner.labels" . | nindent 4 }}
+  name: {{ template "snowflake-specific-provisioner.fullname" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ template "snowflake-specific-provisioner.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "snowflake-specific-provisioner.name" . }}
+        actorSystemName: {{ template "snowflake-specific-provisioner.name" . }}
+    spec:
+      automountServiceAccountToken: false
+      {{- if .Values.dockerRegistrySecretName }}
+      imagePullSecrets:
+        - name: {{ .Values.dockerRegistrySecretName }}
+      {{- end}}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ template "snowflake-specific-provisioner.fullname" . }}-config
+            defaultMode: 420
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ .Values.image.registry }}:{{ .Values.image.tag }}
+          command: ["bin/datamesh-snowflakespecificprovisioner"]
+          args: ["-Dconfig.file=etc/configs/application.conf", "-Dlogback.configurationFile=etc/configs/logback.xml", "-Dconfig.override_with_env_vars=true"]
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: management
+              containerPort: 8558
+              protocol: TCP
+            - name: http
+              containerPort: 8093
+              protocol: TCP
+          {{- if .Values.securityContext }}
+          securityContext: {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe }}
+          readinessProbe: {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.livenessProbe }}
+          livenessProbe: {{- toYaml .Values.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.resources }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SNOWFLAKE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-secrets
+                  key: SNOWFLAKE_USER
+            - name: SNOWFLAKE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-secrets
+                  key: SNOWFLAKE_PASSWORD
+            - name: SNOWFLAKE_ROLE
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-secrets
+                  key: SNOWFLAKE_ROLE
+            - name: SNOWFLAKE_ACCOUNT
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-secrets
+                  key: SNOWFLAKE_ACCOUNT
+            - name: SNOWFLAKE_WAREHOUSE
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-secrets
+                  key: SNOWFLAKE_WAREHOUSE
+            - name: JDBC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-secrets
+                  key: JDBC_URL
+          volumeMounts:
+            - name: config
+              mountPath: /opt/docker/etc/configs
