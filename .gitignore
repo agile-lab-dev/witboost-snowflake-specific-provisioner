@@ -136,3 +136,6 @@ client-generated/src/
 client-generated/docs/
 client-generated/project/build.properties
 openapitools.json
+
+# DrawIO/Diagrams.net backups
+*.drawio.bkp
