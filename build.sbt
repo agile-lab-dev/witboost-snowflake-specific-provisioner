@@ -53,10 +53,15 @@ val packagePrefix = settingKey[String]("The package prefix derived from the user
 
 packagePrefix := name.value.replaceFirst("uservice-", "uservice.").replaceAll("-", "")
 
+def commandOS(command: String) = System.getProperty("os.name").toLowerCase match {
+  case win if win.contains("win") => "cmd /C " + command
+  case _                          => command
+}
+
 generateCode := {
   import sys.process._
 
-  Process(s"""openapi-generator-cli generate -t template/scala-akka-http-server
+  Process(commandOS(s"""openapi-generator-cli generate -t template/scala-akka-http-server
              |                               -i src/main/resources/interface-specification.yml
              |                               -g scala-akka-http-server
              |                               -p projectName=${name.value}
@@ -65,9 +70,9 @@ generateCode := {
              |                               -p apiPackage=it.agilelab.${packagePrefix.value}.api
              |                               -p dateLibrary=java8
              |                               -p entityStrictnessTimeout=15
-             |                               -o server-generated""".stripMargin).!!
+             |                               -o server-generated""").stripMargin).!!
 
-  Process(s"""openapi-generator-cli generate -t template/scala-akka-http-client
+  Process(commandOS(s"""openapi-generator-cli generate -t template/scala-akka-http-client
              |                               -i src/main/resources/interface-specification.yml
              |                               -g scala-akka
              |                               -p projectName=${name.value}
@@ -75,7 +80,7 @@ generateCode := {
              |                               -p modelPackage=it.agilelab.${packagePrefix.value}.client.model
              |                               -p apiPackage=it.agilelab.${packagePrefix.value}.client.api
              |                               -p dateLibrary=java8
-             |                               -o client-generated""".stripMargin).!!
+             |                               -o client-generated""").stripMargin).!!
 
 }
 

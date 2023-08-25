@@ -29,6 +29,8 @@ class ProvisionerApiMarshallerImpl extends SpecificProvisionerApiMarshaller {
   implicit def toEntityMarshallerProvisioningStatus: ToEntityMarshaller[ProvisioningStatus] =
     marshaller[ProvisioningStatus]
 
+  implicit val errorMoreInfoEncoder: Encoder[ErrorMoreInfo] = deriveEncoder[ErrorMoreInfo]
+
   implicit val systemErrorEncoder: Encoder[SystemError]                                = deriveEncoder[SystemError]
   implicit override def toEntityMarshallerSystemError: ToEntityMarshaller[SystemError] = marshaller[SystemError]
 

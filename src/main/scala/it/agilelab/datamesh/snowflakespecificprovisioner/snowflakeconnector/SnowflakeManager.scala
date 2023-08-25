@@ -1,19 +1,10 @@
 package it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector
 
-import cats.data.NonEmptyList
 import cats.implicits.toTraverseOps
 import com.typesafe.scalalogging.LazyLogging
+import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants.{OUTPUT_PORT, STORAGE}
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
-import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, DataType}
-import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.{
-  account,
-  jdbcUrl,
-  password,
-  role,
-  user,
-  warehouse
-}
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   ASSIGN_ROLE,
   CREATE_DB,
@@ -30,6 +21,8 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   USAGE_ON_SCHEMA,
   USAGE_ON_WH
 }
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, DataType}
+import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration._
 
 import java.sql.{Connection, DriverManager, ResultSet}
 import java.util.Properties
@@ -39,7 +32,7 @@ class SnowflakeManager extends LazyLogging {
 
   val queryBuilder = new QueryHelper
 
-  def provisionOutputPort(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
+  def provisionOutputPort(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = {
     logger.info("Starting output port provisioning")
     for {
       connection      <- getConnection
@@ -50,18 +43,14 @@ class SnowflakeManager extends LazyLogging {
       viewStatement   <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_VIEW)
       _               <- executeStatement(connection, viewStatement)
       _ = executeUpdateAcl(descriptor, Seq(descriptor.dataProduct.dataProductOwner))
-      _ <- validateSchema(connection, descriptor) match {
-        case Right(validationResult) if validationResult => Right(())
-        case _                                           =>
-          unprovisionOutputPort(descriptor)
-          Left(ExecuteStatementError(
-            "Schema validation failed: the custom view schema doesn't match with the one specified inside the descriptor"
-          ))
+      _ <- validateSchema(connection, descriptor).left.map { err =>
+        unprovisionOutputPort(descriptor)
+        err
       }
     } yield ()
   }
 
-  def unprovisionOutputPort(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
+  def unprovisionOutputPort(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = {
     logger.info("Starting output port unprovisioning")
     for {
       connection          <- getConnection
@@ -75,7 +64,7 @@ class SnowflakeManager extends LazyLogging {
   def updateAclOutputPort(
       descriptor: ProvisioningRequestDescriptor,
       refs: Seq[String]
-  ): Either[SnowflakeError with Product, Unit] = {
+  ): Either[SnowflakeError, Unit] = {
     logger.info("Starting executing executeUpdateAcl for users: {}...", refs.mkString(", "))
     for {
       connection             <- getConnection
@@ -94,7 +83,7 @@ class SnowflakeManager extends LazyLogging {
     } yield ()
   }
 
-  def provisionStorage(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
+  def provisionStorage(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = {
     logger.info("Starting storage provisioning")
     for {
       connection      <- getConnection
@@ -110,7 +99,7 @@ class SnowflakeManager extends LazyLogging {
     } yield ()
   }
 
-  def unprovisionStorage(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError with Product, Unit] = {
+  def unprovisionStorage(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = {
     logger.info("Starting storage unprovisioning")
     for {
       connection      <- getConnection
@@ -122,91 +111,130 @@ class SnowflakeManager extends LazyLogging {
     } yield ()
   }
 
-  def executeProvision(descriptor: ProvisioningRequestDescriptor): Either[Product, Unit] =
+  def executeProvision(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] =
     descriptor.getComponentToProvision match {
       case Some(component) => component.getKind match {
           case Right(kind) if kind.equals(STORAGE)     => provisionStorage(descriptor)
           case Right(kind) if kind.equals(OUTPUT_PORT) => provisionOutputPort(descriptor)
-          case Right(unsupportedKind) => Left(NonEmptyList.one("Unsupported component kind: " + unsupportedKind))
-          case Left(error)            => Left(NonEmptyList.one(error))
+          case Right(unsupportedKind)                  => Left(ProvisioningValidationError(
+              descriptor.getComponentToProvision.map(_.toString),
+              Some(Constants.KIND_FIELD),
+              List("Unsupported component kind: " + unsupportedKind),
+              List("The Snowflake Specific Provisioner can only deploy storage and output port components")
+            ))
+          case Left(error)                             => Left(error)
         }
-      case _               => Left(NonEmptyList.one("The yaml is not a correct Provisioning Request: "))
+      case _               => Left(ParseError(
+          Some(descriptor.dataProduct.toString),
+          Some(descriptor.componentIdToProvision),
+          List("The yaml is not a correct Provisioning Request: ")
+        ))
     }
 
-  def executeUnprovision(descriptor: ProvisioningRequestDescriptor): Either[Product, Unit] =
+  def executeUnprovision(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] =
     descriptor.getComponentToProvision match {
       case Some(component) => component.getKind match {
           case Right(kind) if kind.equals(STORAGE)     => unprovisionStorage(descriptor)
           case Right(kind) if kind.equals(OUTPUT_PORT) => unprovisionOutputPort(descriptor)
-          case Right(unsupportedKind) => Left(NonEmptyList.one("Unsupported component kind: " + unsupportedKind))
-          case Left(error)            => Left(NonEmptyList.one(error))
+          case Right(unsupportedKind)                  => Left(ProvisioningValidationError(
+              descriptor.getComponentToProvision.map(_.toString),
+              Some(Constants.KIND_FIELD),
+              List("Unsupported component kind: " + unsupportedKind),
+              List("The Snowflake Specific Provisioner can only undeploy storage and output port components")
+            ))
+          case Left(error)                             => Left(error)
         }
-      case _               => Left(NonEmptyList.one("The yaml is not a correct Provisioning Request: "))
+      case _               => Left(ParseError(
+          Some(descriptor.dataProduct.toString),
+          Some(descriptor.componentIdToProvision),
+          List("The yaml is not a correct Provisioning Request: ")
+        ))
     }
 
-  def executeUpdateAcl(descriptor: ProvisioningRequestDescriptor, refs: Seq[String]): Either[Product, Unit] = {
+  def executeUpdateAcl(descriptor: ProvisioningRequestDescriptor, refs: Seq[String]): Either[SnowflakeError, Unit] = {
     logger.info("Starting executing executeUpdateAcl for users: {}", refs.mkString(", "))
     descriptor.getComponentToProvision match {
       case Some(component) => component.getKind match {
           case Right(kind) if kind.equals(OUTPUT_PORT) => updateAclOutputPort(descriptor, refs)
-          case Right(unsupportedKind) => Left(NonEmptyList.one("Unsupported component kind: " + unsupportedKind))
-          case Left(error)            => Left(NonEmptyList.one(error))
+          case Right(unsupportedKind)                  => Left(ProvisioningValidationError(
+              descriptor.getComponentToProvision.map(_.toString),
+              Some(Constants.KIND_FIELD),
+              List("Unsupported component kind: " + unsupportedKind),
+              List("The Snowflake Specific Provisioner can only update ACL on output port components")
+            ))
+          case Left(error)                             => Left(error)
         }
-      case _               => Left(NonEmptyList.one("The yaml is not a correct Provisioning Request: "))
+      case _               => Left(ParseError(
+          Some(descriptor.dataProduct.toString),
+          Some(descriptor.componentIdToProvision),
+          List("The yaml is not a correct Provisioning Request: ")
+        ))
     }
   }
 
-  def executeStatement(connection: Connection, statementString: String): Either[SnowflakeError with Product, Unit] =
-    Try {
-      logger.info("Executing SQL statement: " + statementString.replaceAll("\\n", ""))
-      val statement = connection.createStatement()
-      statement.executeUpdate(statementString)
-      statement.close()
-    } match {
-      case Failure(exception) => Left(ExecuteStatementError(exception.getMessage))
-      case Success(_)         => Right(())
-    }
-
-  def validateSchema(
-      connection: Connection,
-      descriptor: ProvisioningRequestDescriptor
-  ): Either[SnowflakeError with Product, Boolean] = Try {
-    logger.info("Starting schema validation")
-    val validateStatement = queryBuilder.buildOutputPortStatement(descriptor, DESCRIBE_VIEW).toOption.get
-    val component         = queryBuilder.getComponent(descriptor).toOption.get
-
-    val customViewStatement = queryBuilder.getCustomViewStatement(component)
-
-    if (customViewStatement.isEmpty) {
-      logger.info("No custom view found. Skipping schema validation")
-      true
-    } else {
-
-      val customViewName = queryBuilder.getCustomViewName(customViewStatement).get
-      val viewName       = queryBuilder.getViewName(component).toOption.get
-
-      if (!viewName.equals(customViewName)) {
-        logger.info(
-          "The view name from the custom statement (" + customViewName +
-            ") does not match with the one specified inside the descriptor (" + viewName + ")"
-        )
-        false
-      } else {
-
-        val schema           = queryBuilder.getTableSchema(component).toOption.get
-        val alterPrepared    = connection.prepareStatement("ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'")
-        val alterStatement   = alterPrepared.executeQuery()
-        val validatePrepared = connection.prepareStatement(validateStatement)
-        val resultSet        = validatePrepared.executeQuery()
-        val areEqual         = compareSchemas(schema, resultSet)
-        alterStatement.close()
-        areEqual
-      }
-    }
+  def executeStatement(connection: Connection, statementString: String): Either[SnowflakeError, Unit] = Try {
+    logger.info("Executing SQL statement: " + statementString.replaceAll("\\n", ""))
+    val statement = connection.createStatement()
+    statement.executeUpdate(statementString)
+    statement.close()
   } match {
-    case Failure(exception) => Left(ExecuteStatementError(exception.getMessage))
-    case Success(result)    => Right(result)
+    case Failure(exception) => Left(ExecuteStatementError(Some(statementString), List(exception.getMessage)))
+    case Success(_)         => Right(())
   }
+
+  def validateSchema(connection: Connection, descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] =
+    for {
+      validateStatement <- queryBuilder.buildOutputPortStatement(descriptor, DESCRIBE_VIEW)
+      component         <- queryBuilder.getComponent(descriptor)
+      customViewStatement = queryBuilder.getCustomViewStatement(component)
+      result <-
+        if (customViewStatement.isEmpty) {
+          logger.info("No custom view found. Skipping schema validation")
+          Right(())
+        } else {
+          for {
+            customViewName  <- queryBuilder.getCustomViewName(customViewStatement).toRight(ParseError(
+              Some(customViewStatement),
+              None,
+              List("Error while retrieving the view name from the custom view statement")
+            ))
+            viewName        <- queryBuilder.getViewName(component)
+            _               <-
+              if (!viewName.equals(customViewName)) {
+                val problem = "The view name from the custom statement (" + customViewName +
+                  ") does not match with the one specified inside the descriptor (" + viewName + ")"
+
+                logger.info(problem)
+                Left(SchemaValidationError(descriptor.getComponentToProvision.map(_.toString), List(problem)))
+              } else Right(())
+            schema          <- queryBuilder.getTableSchema(component)
+            executionResult <- Try {
+              val alterPrepared    = connection.prepareStatement("ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'")
+              val alterStatement   = alterPrepared.executeQuery()
+              val validatePrepared = connection.prepareStatement(validateStatement)
+              val resultSet        = validatePrepared.executeQuery()
+              val areEqual         = compareSchemas(schema, resultSet)
+              alterStatement.close()
+              areEqual
+            } match {
+              case Failure(exception) =>
+                val err = ExecuteStatementError(Some(validateStatement), List(exception.getMessage))
+                logger.error("Error while executing statement: ", err)
+                Left(err)
+              case Success(true)      => Right(())
+              case Success(false)     =>
+                val err = SchemaValidationError(
+                  descriptor.getComponentToProvision.map(_.toString),
+                  List(
+                    "Schema validation failed: the custom view schema doesn't match with the one specified inside the descriptor"
+                  )
+                )
+                logger.error("Error, schemas are not equal: ", err)
+                Left(err)
+            }
+          } yield executionResult
+        }
+    } yield result
 
   def compareSchemas(schemaFromDescriptor: List[ColumnSchemaSpec], schemaFromCustomView: ResultSet): Boolean = {
     val columnCount           = schemaFromCustomView.getMetaData.getColumnCount
@@ -223,14 +251,10 @@ class SnowflakeManager extends LazyLogging {
     } else { false }
   }
 
-  def executeMultipleStatement(
-      connection: Connection,
-      statements: Seq[String]
-  ): Either[SnowflakeError with Product, Seq[Unit]] = statements
-    .map(statement => executeStatement(connection, statement)).sequence.left
-    .map(errorList => ExecuteStatementError(errorList.toString))
+  def executeMultipleStatement(connection: Connection, statements: Seq[String]): Either[SnowflakeError, Seq[Unit]] =
+    statements.traverse(statement => executeStatement(connection, statement))
 
-  def getConnection: Either[SnowflakeError with Product, Connection] = Try {
+  def getConnection: Either[SnowflakeError, Connection] = Try {
     logger.info("Getting connection to Snowflake account...")
     val properties = new Properties()
     properties.put("user", user)
@@ -240,7 +264,10 @@ class SnowflakeManager extends LazyLogging {
     properties.put("warehouse", warehouse)
     DriverManager.getConnection(jdbcUrl, properties)
   } match {
-    case Failure(exception)  => Left(GetConnectionError(exception.getMessage))
+    case Failure(exception)  => Left(GetConnectionError(
+        List(exception.getMessage),
+        List("Please check that the connection configuration variables are set correctly")
+      ))
     case Success(connection) => Right(connection)
   }
 

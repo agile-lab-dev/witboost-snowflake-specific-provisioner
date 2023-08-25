@@ -29,7 +29,7 @@ class QueryHelper extends LazyLogging {
   def buildStorageStatement(
       descriptor: ProvisioningRequestDescriptor,
       operation: OperationType
-  ): Either[SnowflakeError with Product, String] = {
+  ): Either[SnowflakeError, String] = {
     logger.info("Starting building storage statement")
     for {
       component <- getComponent(descriptor)
@@ -39,14 +39,14 @@ class QueryHelper extends LazyLogging {
       case CREATE_DB     => Right(createDatabaseStatement(dbName))
       case CREATE_SCHEMA => Right(createSchemaStatement(dbName, schemaName))
       case DELETE_SCHEMA => Right(deleteSchemaStatement(dbName, schemaName))
-      case unsupportedOp => Left(UnsupportedOperationError("Unsupported operation: " + unsupportedOp))
+      case unsupportedOp => Left(UnsupportedOperationError(unsupportedOp))
     }
   }.flatten
 
   def buildMultipleStatement(
       descriptor: ProvisioningRequestDescriptor,
       operation: OperationType
-  ): Either[SnowflakeError with Product, Seq[String]] = {
+  ): Either[SnowflakeError, Seq[String]] = {
     logger.info("Starting building multiple statements")
     for {
       component <- getComponent(descriptor)
@@ -56,14 +56,14 @@ class QueryHelper extends LazyLogging {
     } yield operation match {
       case CREATE_TABLES => Right(createTablesStatement(dbName, schemaName, tables))
       case DELETE_TABLES => Right(deleteTablesStatement(dbName, schemaName, tables))
-      case unsupportedOp => Left(UnsupportedOperationError("Unsupported operation: " + unsupportedOp))
+      case unsupportedOp => Left(UnsupportedOperationError(unsupportedOp))
     }
   }.flatten
 
   def buildOutputPortStatement(
       descriptor: ProvisioningRequestDescriptor,
       operation: OperationType
-  ): Either[SnowflakeError with Product, String] = {
+  ): Either[SnowflakeError, String] = {
     logger.info("Starting building output port statement")
     for {
       component <- getComponent(descriptor)
@@ -100,7 +100,7 @@ class QueryHelper extends LazyLogging {
       case USAGE_ON_SCHEMA => Right(grantUsageStatement("schema", s"$dbName.$schemaName", roleName))
       case SELECT_ON_VIEW  => Right(grantSelectOnViewStatement(dbName, schemaName, viewName, roleName))
       case DESCRIBE_VIEW   => Right(describeView(dbName, schemaName, viewName))
-      case unsupportedOp   => Left(UnsupportedOperationError("Unsupported operation: " + unsupportedOp))
+      case unsupportedOp   => Left(UnsupportedOperationError(unsupportedOp))
     }
   }.flatten
 
@@ -108,7 +108,7 @@ class QueryHelper extends LazyLogging {
       descriptor: ProvisioningRequestDescriptor,
       refs: Seq[String],
       operation: OperationType
-  ): Either[SnowflakeError with Product, Seq[String]] = {
+  ): Either[SnowflakeError, Seq[String]] = {
     logger.info("Starting building refs statements")
     for {
       component <- getComponent(descriptor)
@@ -128,7 +128,7 @@ class QueryHelper extends LazyLogging {
       roleName            = buildRoleName(dbName, schemaName, viewName)
     } yield operation match {
       case ASSIGN_ROLE   => Right(assignRoleToUserStatement(roleName, refs))
-      case unsupportedOp => Left(UnsupportedOperationError("Unsupported operation: " + unsupportedOp))
+      case unsupportedOp => Left(UnsupportedOperationError(unsupportedOp))
     }
   }.flatten
 
@@ -208,19 +208,25 @@ class QueryHelper extends LazyLogging {
         schemaName
     }
 
-  def getTableSchema(component: ComponentDescriptor): Either[SnowflakeError with Product, List[ColumnSchemaSpec]] =
-    for {
-      dataContract <- component.header.hcursor.downField("dataContract").as[Json].left
-        .map(error => GetSchemaError(error.getMessage))
-      schema       <- dataContract.hcursor.downField("schema").as[List[ColumnSchemaSpec]].left
-        .map(error => GetSchemaError(error.getMessage))
-    } yield schema
+  def getTableSchema(component: ComponentDescriptor): Either[SnowflakeError, List[ColumnSchemaSpec]] = for {
+    dataContract <- component.header.hcursor.downField("dataContract").as[Json].left.map(error =>
+      ParseError(Some(component.toString), Some("dataContract"), List(s"Parse error: ${error.getMessage}"))
+    )
+    schema       <- dataContract.hcursor.downField("schema").as[List[ColumnSchemaSpec]].left
+      .map(error => ParseError(Some(component.toString), Some("schema"), List(s"Parse error: ${error.getMessage}")))
+  } yield schema
 
-  def getTableName(component: ComponentDescriptor): Either[SnowflakeError with Product, String] = component.specific
-    .hcursor.downField("tableName").as[String].left.map(error => GetTableNameError(error.message))
+  def getTableName(component: ComponentDescriptor): Either[SnowflakeError, String] = component.specific.hcursor
+    .downField("tableName").as[String].left.map(error =>
+      GetTableNameError(
+        List(error.message),
+        List("If a custom view query is not provided, please provide a tableName in the specific section")
+      )
+    )
 
   def getViewName(component: ComponentDescriptor): Either[GetViewNameError, String] = component.specific.hcursor
-    .downField("viewName").as[String].left.map(error => GetViewNameError(error.message))
+    .downField("viewName").as[String].left
+    .map(error => GetViewNameError(List(error.message), List("Please provide the view name in the specific section")))
 
   def getCustomViewStatement(component: ComponentDescriptor): String =
     component.specific.hcursor.downField("customView").as[String] match {
@@ -256,8 +262,6 @@ class QueryHelper extends LazyLogging {
         List[TableSpec]()
     }
 
-  def getComponent(
-      descriptor: ProvisioningRequestDescriptor
-  ): Either[SnowflakeError with Product, ComponentDescriptor] = descriptor.getComponentToProvision
-    .toRight(GetComponentError("Unable to find component"))
+  def getComponent(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, ComponentDescriptor] = descriptor
+    .getComponentToProvision.toRight(GetComponentError(descriptor.componentIdToProvision))
 }

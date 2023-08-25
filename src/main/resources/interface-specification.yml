@@ -1,15 +1,13 @@
 openapi: 3.0.3
 info:
   title: Specific Provisioner Micro Service
-  description: 'This is the microservice responsible to coordinate all the provisioning tasks for managing a data product'
-  version: '{{version}}'
-servers:
-  - url: /datamesh.snowflakespecificprovisioner/{{version}}
+  description: 'Microservice responsible to handle provisioning and access control requests for one or more data product components.'
+  version: '2.1.0'
 tags:
   - name: SpecificProvisioner
     description: All the provisioning related operations
 paths:
-  /provision:
+  /v1/provision:
     post:
       tags:
         - SpecificProvisioner
@@ -47,7 +45,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemError'
-  /provision/{token}/status:
+  /v1/provision/{token}/status:
     get:
       tags:
         - SpecificProvisioner
@@ -79,7 +77,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemError'
-  /validate:
+  /v1/validate:
     post:
       tags:
         - SpecificProvisioner
@@ -105,7 +103,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemError'
-  /unprovision:
+  /v1/unprovision:
     post:
       tags:
         - SpecificProvisioner
@@ -143,7 +141,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemError'
-  /updateacl:
+  /v1/updateacl:
     post:
       tags:
         - SpecificProvisioner
@@ -228,15 +226,6 @@ components:
           type: boolean
         error:
           $ref: '#/components/schemas/ValidationError'
-    ValidationError:
-      required:
-        - errors
-      type: object
-      properties:
-        errors:
-          type: array
-          items:
-            type: string
     ProvisionInfo:
       required:
         - request
@@ -247,6 +236,27 @@ components:
           type: string
         result:
           type: string
+    ValidationError:
+      required:
+        - errors
+      type: object
+      properties:
+        errors:
+          type: array
+          deprecated: true
+          items:
+            type: string
+        userMessage:
+          type: string
+          description: User-readable message to be displayed
+        input:
+          type: string
+          description: Optional field to include the file or descriptor that raised the error
+        inputErrorField:
+          type: string
+          description: Optional field to include the field path (in dot format) that raised the error
+        moreInfo:
+          $ref: "#/components/schemas/ErrorMoreInfo"
     SystemError:
       required:
         - error
@@ -254,3 +264,32 @@ components:
       properties:
         error:
           type: string
+          deprecated: true
+        userMessage:
+          type: string
+          description: User-readable message to be displayed
+        input:
+          type: string
+          description: Optional field to include the file or descriptor that raised the error
+        inputErrorField:
+          type: string
+          description: Optional field to include the field path (in dot format) that raised the error
+        moreInfo:
+          $ref: "#/components/schemas/ErrorMoreInfo"
+    ErrorMoreInfo:
+      required:
+        - problems
+        - solutions
+      type: object
+      description: Object that will include the more in-depth, specific information about the error
+      properties:
+        problems:
+          type: array
+          description: "Array of possible multiple problems: i.e. multiple validations failed"
+          items:
+            type: string
+        solutions:
+          type: array
+          description: Array of possible solutions that the developer gives to the user to solve the issue
+          items:
+            type: string

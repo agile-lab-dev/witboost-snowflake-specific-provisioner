@@ -1,10 +1,10 @@
 package it.agilelab.datamesh.snowflakespecificprovisioner.model
 
-import org.scalatest.flatspec.AnyFlatSpec
-import cats.data.{EitherNel, NonEmptyList}
-import org.scalatest.EitherValues._
-import org.scalatest.matchers.should.Matchers._
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.test.getTestResourceAsString
+import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.ParseError
+import org.scalatest.EitherValues._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers._
 
 class DescriptorParserSpec extends AnyFlatSpec {
 
@@ -17,9 +17,10 @@ class DescriptorParserSpec extends AnyFlatSpec {
 
     val backYaml = dpDescr.toString
 
-    val backDpDescr = DataProductDescriptor(backYaml).toOption.get
+    val backDpDescr = DataProductDescriptor(backYaml)
 
-    dpDescr should be(backDpDescr)
+    backDpDescr shouldBe a[Right[_, _]]
+    backDpDescr.foreach(backDpDescr => dpDescr should be(backDpDescr))
   }
 
   "Parsing a well formed descriptor" should "return a correct ComponentToProvision" in {
@@ -36,10 +37,9 @@ class DescriptorParserSpec extends AnyFlatSpec {
 
     val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1_missing_component_id.yml")
 
-    val dp: EitherNel[String, ProvisioningRequestDescriptor] = ProvisioningRequestDescriptor(yaml)
+    val dp = ProvisioningRequestDescriptor(yaml)
 
-    dp.left.value.head should
-      startWith("The yaml is not a correct Provisioning Request: cannot parse ComponentIdToProvision for")
+    dp.left.value.problems should contain("cannot parse ComponentIdToProvision")
 
   }
 
@@ -47,10 +47,9 @@ class DescriptorParserSpec extends AnyFlatSpec {
 
     val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1_missing_components.yml")
 
-    val dp: EitherNel[String, ProvisioningRequestDescriptor] = ProvisioningRequestDescriptor(yaml)
+    val dp = ProvisioningRequestDescriptor(yaml)
 
-    dp.left.value.head should
-      startWith("The yaml is not a correct Provisioning Request: cannot parse Data Product components for")
+    dp.left.value.problems should contain("cannot parse Data Product components")
 
   }
 
@@ -59,10 +58,9 @@ class DescriptorParserSpec extends AnyFlatSpec {
 
       val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1_missing_specific.yml")
 
-      val dp: EitherNel[String, ProvisioningRequestDescriptor] = ProvisioningRequestDescriptor(yaml)
+      val dp = ProvisioningRequestDescriptor(yaml)
 
-      dp.left.value.head should
-        startWith("The yaml is not a correct Provisioning Request: cannot parse Component specific for ")
+      dp.left.value.problems should contain("cannot parse Component specific")
 
     }
 
@@ -72,9 +70,9 @@ class DescriptorParserSpec extends AnyFlatSpec {
                  |[]
                  |""".stripMargin
 
-    val dp: EitherNel[String, ProvisioningRequestDescriptor] = ProvisioningRequestDescriptor(yaml)
+    val dp = ProvisioningRequestDescriptor(yaml)
 
-    dp.left.value should be(a[NonEmptyList[_]])
+    dp.left.value shouldBe a[ParseError]
   }
 
   "Parsing a well formed storage component descriptor" should "return a correct DataProductDescriptor" in {
@@ -88,9 +86,10 @@ class DescriptorParserSpec extends AnyFlatSpec {
 
     val backYaml = dpDescr.toString
 
-    val backDpDescr = DataProductDescriptor(backYaml).toOption.get
+    val backDpDescr = DataProductDescriptor(backYaml)
 
-    dpDescr should be(backDpDescr)
+    backDpDescr shouldBe a[Right[_, _]]
+    backDpDescr.foreach(backDpDescr => dpDescr should be(backDpDescr))
   }
 
 }

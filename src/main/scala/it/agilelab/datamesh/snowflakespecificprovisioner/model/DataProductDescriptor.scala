@@ -3,6 +3,7 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.model
 import io.circe.yaml.parser
 import io.circe.{HCursor, Json}
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants
+import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.ParseError
 
 trait YamlPrinter {
 
@@ -26,52 +27,64 @@ final case class DataProductDescriptor(
 
   def toJson: Json = Json.obj((Constants.DATA_PRODUCT_FIELD, header))
 
-  def getName: Either[String, String] = header.hcursor.downField(Constants.NAME_FIELD).as[String].left
-    .map(_ => s"cannot parse Data Product name for ${header.spaces2}")
+  def getName: Either[ParseError, String] = header.hcursor.downField(Constants.NAME_FIELD).as[String].left
+    .map(_ => ParseError(Some(header.toString), Some(Constants.NAME_FIELD), List(s"cannot parse Data Product name")))
 }
 
 object DataProductDescriptor {
 
-  private def getId(header: Json): Either[String, String] = header.hcursor.downField(Constants.ID_FIELD).as[String].left
-    .map(_ => s"cannot parse Data Product id for ${header.spaces2}")
+  private def getId(header: Json): Either[ParseError, String] = header.hcursor.downField(Constants.ID_FIELD).as[String]
+    .left.map(_ => ParseError(Some(header.toString), Some(Constants.NAME_FIELD), List(s"cannot parse Data Product id")))
 
-  private def getEnvironment(header: Json): Either[String, String] = header.hcursor
-    .downField(Constants.ENVIRONMENT_FIELD).as[String].left
-    .map(_ => s"cannot parse Data Product environment for ${header.spaces2}")
+  private def getEnvironment(header: Json): Either[ParseError, String] = header.hcursor
+    .downField(Constants.ENVIRONMENT_FIELD).as[String].left.map(_ =>
+      ParseError(Some(header.toString), Some(Constants.ID_FIELD), List(s"cannot parse Data Product environment"))
+    )
 
-  private def getDpHeaderDescriptor(hcursor: HCursor): Either[String, Json] =
+  private def getDpHeaderDescriptor(hcursor: HCursor): Either[ParseError, Json] =
     hcursor.downField(Constants.DATA_PRODUCT_FIELD).focus match {
       case Some(x) => Right(x)
-      case None    => Left(s"cannot parse Data Product header for ${hcursor.value.spaces2}")
+      case None    => Left(ParseError(
+          Some(hcursor.value.toString),
+          Some(Constants.ENVIRONMENT_FIELD),
+          List(s"cannot parse Data Product header")
+        ))
     }
 
-  private def getComponentsDescriptor(environment: String, header: Json): Either[String, List[ComponentDescriptor]] = {
+  private def getComponentsDescriptor(
+      environment: String,
+      header: Json
+  ): Either[ParseError, List[ComponentDescriptor]] = {
     val componentsHCursor = header.hcursor.downField(Constants.COMPONENTS_FIELD)
     componentsHCursor.values.map(_.toList)
   } match {
-    case None           => Left(s"cannot parse Data Product components for ${header.spaces2}")
+    case None           => Left(ParseError(
+        Some(header.toString),
+        Some(Constants.DATA_PRODUCT_FIELD),
+        List(s"cannot parse Data Product components")
+      ))
     case Some(jsonList) =>
       val result = jsonList.map(c => ComponentDescriptor(environment, c))
       result.collectFirst { case Left(error) => error }.toLeft(result.collect { case Right(r) => r })
   }
 
-  private def getDomain(header: Json): Either[String, String] = header.hcursor.downField("domain").as[String].left
-    .map(_ => s"cannot parse Data Product domain for ${header.spaces2}")
+  private def getDomain(header: Json): Either[ParseError, String] = header.hcursor.downField("domain").as[String].left
+    .map(_ => ParseError(Some(header.toString), Some("domain"), List(s"cannot parse Data Product domain")))
 
   private def getName(header: Json) = header.hcursor.downField("name").as[String].left
-    .map(_ => s"cannot parse Data Product name for ${header.spaces2}")
+    .map(_ => ParseError(Some(header.toString), Some("name"), List(s"cannot parse Data Product name")))
 
   private def getVersion(header: Json) = header.hcursor.downField("version").as[String].left
-    .map(_ => s"cannot parse Data Product version for ${header.spaces2}")
+    .map(_ => ParseError(Some(header.toString), Some("version"), List(s"cannot parse Data Product version")))
 
   private def getDataProductOwner(header: Json) = header.hcursor.downField("dataProductOwner").as[String].left
-    .map(_ => s"cannot parse Data Product owner for ${header.spaces2}")
+    .map(_ => ParseError(Some(header.toString), Some("dataProductOwner"), List(s"cannot parse Data Product owner")))
 
-  def apply(yaml: String): Either[String, DataProductDescriptor] = parser.parse(yaml) match {
-    case Left(err)   => Left(err.getMessage())
+  def apply(yaml: String): Either[ParseError, DataProductDescriptor] = parser.parse(yaml) match {
+    case Left(err)   => Left(ParseError(Some(yaml), None, List(s"Parse error: $err")))
     case Right(json) =>
-      val hcursor                                        = json.hcursor
-      val maybeDp: Either[String, DataProductDescriptor] = for {
+      val hcursor = json.hcursor
+      for {
         header      <- getDpHeaderDescriptor(hcursor.root)
         id          <- getId(header)
         environment <- getEnvironment(header)
@@ -81,10 +94,5 @@ object DataProductDescriptor {
         dpOwner     <- getDataProductOwner(header)
         components  <- getComponentsDescriptor(environment, header)
       } yield DataProductDescriptor(id, name, version, environment, domain, dpOwner, header, components)
-
-      maybeDp match {
-        case Left(errorMsg) => Left(errorMsg)
-        case Right(dp)      => Right(dp)
-      }
   }
 }

@@ -3,12 +3,15 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.api.intepreter
 import akka.http.scaladsl.marshalling.ToEntityMarshaller
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
-import cats.data.NonEmptyList
 import com.typesafe.scalalogging.LazyLogging
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.{marshaller, unmarshaller}
 import it.agilelab.datamesh.snowflakespecificprovisioner.api.SpecificProvisionerApiService
 import it.agilelab.datamesh.snowflakespecificprovisioner.model._
-import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.{SnowflakeError, SnowflakeManager}
+import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.{
+  SnowflakeManager,
+  SnowflakeSystemError,
+  SnowflakeValidationError
+}
 
 class ProvisionerApiServiceImpl extends SpecificProvisionerApiService with LazyLogging {
 
@@ -41,16 +44,16 @@ class ProvisionerApiServiceImpl extends SpecificProvisionerApiService with LazyL
       toEntityMarshallerValidationError: ToEntityMarshaller[ValidationError]
   ): Route =
     ProvisioningRequestDescriptor(provisioningRequest.descriptor).flatMap(snowflakeManager.executeProvision) match {
-      case Left(e: SnowflakeError)  =>
-        logger.error("System error: {}", e.errorMessage)
-        provision500(SystemError(e.errorMessage))
-      case Left(e: NonEmptyList[_]) =>
-        logger.error("Validation error: {}", e.toList)
-        provision400(ValidationError(e.toList.map(_.toString)))
-      case Right(_)                 =>
+      case Left(e: SnowflakeSystemError)     =>
+        logger.error("System error: ", e)
+        provision500(ModelConverter.buildSystemError(e))
+      case Left(e: SnowflakeValidationError) =>
+        logger.error("Validation error: ", e)
+        provision400(ModelConverter.buildValidationError(e))
+      case Right(_)                          =>
         logger.info("OK")
         provision202("OK")
-      case _                        =>
+      case _                                 =>
         logger.error("Generic error")
         provision500(SystemError("Generic error"))
     }
@@ -77,16 +80,16 @@ class ProvisionerApiServiceImpl extends SpecificProvisionerApiService with LazyL
       toEntityMarshallerValidationError: ToEntityMarshaller[ValidationError]
   ): Route =
     ProvisioningRequestDescriptor(provisioningRequest.descriptor).flatMap(snowflakeManager.executeUnprovision) match {
-      case Left(e: SnowflakeError)  =>
-        logger.error("System error: {}", e.errorMessage)
-        unprovision500(SystemError(e.errorMessage))
-      case Left(e: NonEmptyList[_]) =>
-        logger.error("Validation error: {}", e.toList)
-        unprovision400(ValidationError(e.toList.map(_.toString)))
-      case Right(_)                 =>
+      case Left(e: SnowflakeSystemError)     =>
+        logger.error("System error", e)
+        unprovision500(ModelConverter.buildSystemError(e))
+      case Left(e: SnowflakeValidationError) =>
+        logger.error("Validation error: ", e)
+        unprovision400(ModelConverter.buildValidationError(e))
+      case Right(_)                          =>
         logger.info("OK")
         unprovision202("OK")
-      case _                        =>
+      case _                                 =>
         logger.error("Generic error")
         unprovision500(SystemError("Generic error"))
     }
@@ -103,16 +106,16 @@ class ProvisionerApiServiceImpl extends SpecificProvisionerApiService with LazyL
       toEntityMarshallerValidationError: ToEntityMarshaller[ValidationError]
   ): Route = ProvisioningRequestDescriptor(updateAclRequest.provisionInfo.request)
     .flatMap(descriptor => snowflakeManager.executeUpdateAcl(descriptor, updateAclRequest.refs)) match {
-    case Left(e: SnowflakeError)  =>
-      logger.error("System error: {}", e.errorMessage)
-      updateacl500(SystemError(e.errorMessage))
-    case Left(e: NonEmptyList[_]) =>
-      logger.error("Validation error: {}", e.toList)
-      updateacl400(ValidationError(e.toList.map(_.toString)))
-    case Right(_)                 =>
+    case Left(e: SnowflakeSystemError)     =>
+      logger.error("System error: ", e)
+      updateacl500(ModelConverter.buildSystemError(e))
+    case Left(e: SnowflakeValidationError) =>
+      logger.error("Validation error: ", e)
+      updateacl400(ModelConverter.buildValidationError(e))
+    case Right(_)                          =>
       logger.info("OK")
       updateacl202("OK")
-    case _                        =>
+    case _                                 =>
       logger.error("Generic error")
       updateacl500(SystemError("Generic error"))
   }
