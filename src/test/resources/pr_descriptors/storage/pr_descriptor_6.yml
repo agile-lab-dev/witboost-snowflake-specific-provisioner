@@ -40,6 +40,12 @@ dataProduct:
             - name: id
               dataType: TEXT
               constraint: PRIMARY_KEY
+            - name: hour
+              dataType: TEXT
+              constraint: PRIMARY_KEY
+            - name: date
+              dataType: TEXT
+              constraint: PRIMARY_KEY
             - name: name
               dataType: TEXT
             - name: phone

@@ -262,6 +262,7 @@ class SnowflakeManager extends LazyLogging {
     properties.put("role", role)
     properties.put("account", account)
     properties.put("warehouse", warehouse)
+    DriverManager.setLoginTimeout(snowflakeConnectionTimeout.getSeconds.intValue)
     DriverManager.getConnection(jdbcUrl, properties)
   } match {
     case Failure(exception)  => Left(GetConnectionError(

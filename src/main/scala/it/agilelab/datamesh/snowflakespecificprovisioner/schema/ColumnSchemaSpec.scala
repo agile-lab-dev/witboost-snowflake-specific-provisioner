@@ -10,7 +10,7 @@ case class ColumnSchemaSpec(name: String, dataType: DataType, constraint: Option
   def toColumnStatement: String = constraint match {
     case Some(value) => value match {
         case ConstraintType.NOT_NULL    => s"$name $dataType NOT NULL"
-        case ConstraintType.PRIMARY_KEY => s"$name $dataType PRIMARY KEY"
+        case ConstraintType.PRIMARY_KEY => s"$name $dataType" // Primary key constraint is created at table level
         case ConstraintType.UNIQUE      => s"$name $dataType UNIQUE"
       }
     case _           => s"$name $dataType"

@@ -2,6 +2,7 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.system
 
 import com.typesafe.config.{Config, ConfigFactory}
 
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 
 object ApplicationConfiguration {
@@ -16,4 +17,6 @@ object ApplicationConfiguration {
   def db: String                      = config.get.getString("snowflake.db")
   def jdbcUrl: String                 = config.get.getString("snowflake.jdbc-url")
   def schema: String                  = config.get.getString("snowflake.schema")
+
+  def snowflakeConnectionTimeout: Duration = config.get.getDuration("snowflake.connection-timeout")
 }

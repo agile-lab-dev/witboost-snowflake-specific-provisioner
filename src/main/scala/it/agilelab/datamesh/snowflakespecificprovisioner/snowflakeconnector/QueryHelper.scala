@@ -1,9 +1,10 @@
 package it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector
 
+import cats.data.NonEmptyList
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Json
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.{ComponentDescriptor, ProvisioningRequestDescriptor}
-import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, TableSpec}
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, ConstraintType, TableSpec}
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   ASSIGN_ROLE,
   CREATE_DB,
@@ -141,8 +142,26 @@ class QueryHelper extends LazyLogging {
 
   def deleteSchemaStatement(dbName: String, schemaName: String) = s"DROP SCHEMA IF EXISTS $dbName.$schemaName;"
 
-  def createTableStatement(dbName: String, schemaName: String, tableName: String, schema: List[ColumnSchemaSpec]) =
-    s"CREATE TABLE IF NOT EXISTS $dbName.$schemaName.${tableName.toUpperCase} (${schema.map(_.toColumnStatement).mkString(",\n")});"
+  def primaryKeyConstraintStatement(tableName: String, columns: List[ColumnSchemaSpec]): Option[String] = {
+    val primaryKeys = columns.filter(_.constraint.exists(_.equals(ConstraintType.PRIMARY_KEY))).map(_.name)
+    NonEmptyList.fromList(primaryKeys)
+      .map(_.toList.mkString(s"CONSTRAINT ${tableName}_primary_key PRIMARY KEY (", ",", ")"))
+  }
+
+  def createTableStatement(
+      dbName: String,
+      schemaName: String,
+      tableName: String,
+      schema: List[ColumnSchemaSpec]
+  ): String = {
+    val primaryKeyConstraint = primaryKeyConstraintStatement(tableName, schema)
+    val columns              = schema.map(_.toColumnStatement).mkString(",\n")
+    val constraint           = primaryKeyConstraint.fold("")(constraint => s",\n$constraint")
+    s"""CREATE TABLE IF NOT EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+       |(
+       | $columns$constraint
+       |);""".stripMargin
+  }
 
   def deleteTableStatement(dbName: String, schemaName: String, tableName: String) =
     s"DROP TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase};"

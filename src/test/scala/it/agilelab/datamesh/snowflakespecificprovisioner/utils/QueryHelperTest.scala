@@ -2,7 +2,7 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.utils
 
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.test.getTestResourceAsString
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
-import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, DataType}
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, ConstraintType, DataType}
 import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.QueryHelper
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -27,8 +27,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
     )
 
     queryHelper.createTableStatement("my-test", "your", "test_table", cols) should be(
-      "CREATE TABLE IF NOT EXISTS my-test.your.TEST_TABLE (name TEXT,\n" + "phone_number TEXT,\n" + "id TEXT,\n" +
-        "age NUMBER);"
+      "CREATE TABLE IF NOT EXISTS my-test.your.TEST_TABLE\n(\n name TEXT,\nphone_number TEXT,\nid TEXT,\nage NUMBER\n);"
     )
   }
 
@@ -173,10 +172,8 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       res shouldBe a[Right[_, _]]
       res.foreach(script =>
         script should be(List(
-          "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE1 (id TEXT PRIMARY KEY,\n" + "name TEXT,\n" +
-            "phone NUMBER);",
-          "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE2 (id TEXT PRIMARY KEY,\n" +
-            "name TEXT NOT NULL,\n" + "phone NUMBER UNIQUE);"
+          "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE1\n(\n id TEXT,\nname TEXT,\nphone NUMBER,\nCONSTRAINT table1_primary_key PRIMARY KEY (id)\n);",
+          "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE2\n(\n id TEXT,\nname TEXT NOT NULL,\nphone NUMBER UNIQUE,\nCONSTRAINT table2_primary_key PRIMARY KEY (id)\n);"
         ))
       )
     }
@@ -207,6 +204,19 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
         ))
       )
     }
+
+  "primaryKeyConstraintStatement" should "correctly build a primary key constraint" in {
+    val cols      = List(
+      ColumnSchemaSpec("id", DataType.TEXT, Some(ConstraintType.PRIMARY_KEY)),
+      ColumnSchemaSpec("cf", DataType.TEXT, Some(ConstraintType.PRIMARY_KEY)),
+      ColumnSchemaSpec("name", DataType.TEXT),
+      ColumnSchemaSpec("age", DataType.NUMBER)
+    )
+    val tableName = "my_test_table"
+    val res       = queryHelper.primaryKeyConstraintStatement(tableName, cols)
+
+    res.foreach(constraint => constraint should be("CONSTRAINT my_test_table_primary_key PRIMARY KEY (id,cf)"))
+  }
 
   "getCustomDatabaseName method" should "correctly return the custom database name" in {
     val customViewStatement = "CREATE VIEW IF NOT EXISTS myDb.mySchema.myView AS ..."
