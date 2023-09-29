@@ -5,12 +5,12 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.Snow
 
 object ModelConverter {
 
-  def buildValidationError(snowflakeError: SnowflakeError): ValidationError = {
+  def buildRequestValidationError(snowflakeError: SnowflakeError): RequestValidationError = {
     val moreInfo    =
       if (snowflakeError.problems.isEmpty && snowflakeError.solutions.isEmpty) None
       else Some(ErrorMoreInfo(problems = snowflakeError.problems, solutions = snowflakeError.solutions))
     val userMessage = snowflakeError.userMessage
-    ValidationError(
+    RequestValidationError(
       errors = List(userMessage) ++ snowflakeError.problems,
       userMessage = Some(userMessage),
       moreInfo = moreInfo,

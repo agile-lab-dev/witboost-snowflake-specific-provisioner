@@ -1,0 +1,363 @@
+{
+	"info": {
+		"_postman_id": "82abe242-88d2-479e-9f06-b3ba5b621f0c",
+		"name": "Specific Provisioner v2.2.0",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "30115356"
+	},
+	"item": [
+		{
+			"name": "v1",
+			"item": [
+				{
+					"name": "validate",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"descriptor\": \"Hi\",\r\n    \"descriptorKind\": \"DATAPRODUCT_DESCRIPTOR\",\r\n    \"removeData\": false\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{url}}/v1/validate",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"v1",
+								"validate"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "provision",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"descriptor\": \"dataProduct:\\n  name: DpOwnerTest\\n  environment: dev\\n  description: Dataproduct invoice\\n  dataProductOwner: group:bigdata\\n  dataProductOwnerDisplayName: Group BigData\\n  domain: marketing\\n  kind: dataproduct\\n  email: contact@example.com\\n  version: 1.0.0\\n  fullyQualifiedName: InvoiceDataProduct\\n  displayName: Invoice\\n  informationSLA: Info\\n  maturity: Tactical\\n  billing: {}\\n  tags: []\\n  id: domain:marketing.Marketing-Invoice-1.1\\n  specific: {}\\n  components:\\n    - id: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1\\n      name: Marketing-Invoice-S3-Ingestion-Data-1\\n      fullyQualifiedName: Marketing Invoice S3 Ingestion Data\\n      description: Marketing Invoice S3 Ingestion Data\\n      kind: storage\\n      owners:\\n        - group:bigdata\\n      infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0\\n      useCaseTemplateId: urn:dmb:utm:template-id-1:1.0.0\\n      dependsOn: [ ]\\n      platform: CDP_AWS\\n      technology: CDP_S3\\n      storageType: SQL\\n      tags: [ ]\\n      specific:\\n        database: TEST_AIRBYTE\\n        schema: PUBLIC\\n        tables:\\n          - tableName: table1\\n            schema:\\n            - name: id\\n              dataType: TEXT\\n              constraint: PRIMARY_KEY\\n            - name: name\\n              dataType: TEXT\\n            - name: phone\\n              dataType: NUMBER\\n              constraint: NULL\\n          - tableName: table2\\n            schema:\\n              - name: id\\n                dataType: TEXT\\n                constraint: PRIMARY_KEY\\n              - name: name\\n                dataType: TEXT\\n                constraint: NOT_NULL\\n              - name: phone\\n                dataType: NUMBER\\n                constraint: UNIQUE\\ncomponentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1\",\r\n    \"descriptorKind\": \"DATAPRODUCT_DESCRIPTOR\",\r\n    \"removeData\": false\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{url}}/v1/provision",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"v1",
+								"provision"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "provision status",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"descriptor\": \"dataProduct:\\n  name: DpOwnerTest\\n  environment: dev\\n  description: Dataproduct invoice\\n  dataProductOwner: group:bigdata\\n  dataProductOwnerDisplayName: Group BigData\\n  domain: marketing\\n  kind: dataproduct\\n  email: contact@example.com\\n  version: 1.0.0\\n  fullyQualifiedName: InvoiceDataProduct\\n  displayName: Invoice\\n  informationSLA: Info\\n  maturity: Tactical\\n  billing: {}\\n  tags: []\\n  id: domain:marketing.Marketing-Invoice-1.1\\n  specific: {}\\n  components:\\n    - id: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1\\n      name: Marketing-Invoice-S3-Ingestion-Data-1\\n      fullyQualifiedName: Marketing Invoice S3 Ingestion Data\\n      description: Marketing Invoice S3 Ingestion Data\\n      kind: storage\\n      owners:\\n        - group:bigdata\\n      infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0\\n      useCaseTemplateId: urn:dmb:utm:template-id-1:1.0.0\\n      dependsOn: [ ]\\n      platform: CDP_AWS\\n      technology: CDP_S3\\n      storageType: SQL\\n      tags: [ ]\\n      specific:\\n        database: TEST_AIRBYTE\\n        schema: PUBLIC\\n        tables:\\n          - tableName: table1\\n            schema:\\n            - name: id\\n              dataType: TEXT\\n              constraint: PRIMARY_KEY\\n            - name: name\\n              dataType: TEXT\\n            - name: phone\\n              dataType: NUMBER\\n              constraint: NULL\\n          - tableName: table2\\n            schema:\\n              - name: id\\n                dataType: TEXT\\n                constraint: PRIMARY_KEY\\n              - name: name\\n                dataType: TEXT\\n                constraint: NOT_NULL\\n              - name: phone\\n                dataType: NUMBER\\n                constraint: UNIQUE\\ncomponentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1\",\r\n    \"descriptorKind\": \"DATAPRODUCT_DESCRIPTOR\",\r\n    \"removeData\": false\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{url}}/v1/provision/:token/status",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"v1",
+								"provision",
+								":token",
+								"status"
+							],
+							"variable": [
+								{
+									"key": "token",
+									"value": "a-token"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "unprovision",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"descriptor\": \"dataProduct:\\n  name: DpOwnerTest\\n  environment: dev\\n  description: Dataproduct invoice\\n  dataProductOwner: group:bigdata\\n  dataProductOwnerDisplayName: Group BigData\\n  domain: marketing\\n  kind: dataproduct\\n  email: contact@example.com\\n  version: 1.0.0\\n  fullyQualifiedName: InvoiceDataProduct\\n  displayName: Invoice\\n  informationSLA: Info\\n  maturity: Tactical\\n  billing: {}\\n  tags: []\\n  id: domain:marketing.Marketing-Invoice-1.1\\n  specific: {}\\n  components:\\n    - id: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1\\n      name: Marketing-Invoice-S3-Ingestion-Data-1\\n      fullyQualifiedName: Marketing Invoice S3 Ingestion Data\\n      description: Marketing Invoice S3 Ingestion Data\\n      kind: storage\\n      owners:\\n        - group:bigdata\\n      infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0\\n      useCaseTemplateId: urn:dmb:utm:template-id-1:1.0.0\\n      dependsOn: [ ]\\n      platform: CDP_AWS\\n      technology: CDP_S3\\n      storageType: SQL\\n      tags: [ ]\\n      specific:\\n        database: TEST_AIRBYTE\\n        schema: PUBLIC\\n        tables:\\n          - tableName: table1\\n            schema:\\n            - name: id\\n              dataType: TEXT\\n              constraint: PRIMARY_KEY\\n            - name: name\\n              dataType: TEXT\\n            - name: phone\\n              dataType: NUMBER\\n              constraint: NULL\\n          - tableName: table2\\n            schema:\\n              - name: id\\n                dataType: TEXT\\n                constraint: PRIMARY_KEY\\n              - name: name\\n                dataType: TEXT\\n                constraint: NOT_NULL\\n              - name: phone\\n                dataType: NUMBER\\n                constraint: UNIQUE\\ncomponentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1\",\r\n    \"descriptorKind\": \"DATAPRODUCT_DESCRIPTOR\",\r\n    \"removeData\": false\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{url}}/v1/unprovision",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"v1",
+								"unprovision"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "updateacl",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n   \"refs\": [\"sergio.mejia_agilelab.it\"],\r\n   \"provisionInfo\": {\r\n       \"request\": \"dataProduct:\\n  name: DpOwnerTest\\n  environment: dev\\n  description: Dataproduct invoice\\n  dataProductOwner: group:bigdata\\n  dataProductOwnerDisplayName: Group BigData\\n  domain: marketing\\n  kind: dataproduct\\n  email: contact@example.com\\n  version: 1.0.0\\n  fullyQualifiedName: InvoiceDataProduct\\n  displayName: Invoice\\n  informationSLA: Info\\n  maturity: Tactical\\n  billing: {}\\n  tags: []\\n  id: domain:marketing.Marketing-Invoice-1.1\\n  specific: {}\\n  components:\\n    - id: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1\\n      name: Marketing-Invoice-S3-Ingestion-Data-1\\n      fullyQualifiedName: Marketing Invoice S3 Ingestion Data\\n      description: Marketing Invoice S3 Ingestion Data\\n      kind: outputport\\n      owners:\\n        - group:bigdata\\n      infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0\\n      useCaseTemplateId: urn:dmb:utm:template-id-1:1.0.0\\n      dependsOn: [ ]\\n      platform: CDP_AWS\\n      technology: CDP_S3\\n      dataContract:\\n        schema:\\n          - name: id\\n            dataType: TEXT\\n            constraint: PRIMARY_KEY\\n          - name: name\\n            dataType: TEXT\\n          - name: phone\\n            dataType: NUMBER\\n            constraint: NULL\\n      tags: [ ]\\n      specific:\\n        viewName: snowflake_view\\n        tableName: snowflake_table\\n        database: TEST_AIRBYTE\\n        schema: PUBLIC\\ncomponentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1\",\r\n       \"result\": \"\"\r\n   }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{url}}/v1/updateacl",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"v1",
+								"updateacl"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "reverse-provisioning",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"useCaseTemplateId\": \"urn:dmb:utm:template-id-1:1.0.0\",\r\n    \"environment\": \"development\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{url}}/v1/reverse-provisioning",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"v1",
+								"reverse-provisioning"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "reverse-provisioning status",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"descriptor\": \"dataProduct:\\n  name: DpOwnerTest\\n  environment: dev\\n  description: Dataproduct invoice\\n  dataProductOwner: group:bigdata\\n  dataProductOwnerDisplayName: Group BigData\\n  domain: marketing\\n  kind: dataproduct\\n  email: contact@example.com\\n  version: 1.0.0\\n  fullyQualifiedName: InvoiceDataProduct\\n  displayName: Invoice\\n  informationSLA: Info\\n  maturity: Tactical\\n  billing: {}\\n  tags: []\\n  id: domain:marketing.Marketing-Invoice-1.1\\n  specific: {}\\n  components:\\n    - id: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1\\n      name: Marketing-Invoice-S3-Ingestion-Data-1\\n      fullyQualifiedName: Marketing Invoice S3 Ingestion Data\\n      description: Marketing Invoice S3 Ingestion Data\\n      kind: storage\\n      owners:\\n        - group:bigdata\\n      infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0\\n      useCaseTemplateId: urn:dmb:utm:template-id-1:1.0.0\\n      dependsOn: [ ]\\n      platform: CDP_AWS\\n      technology: CDP_S3\\n      storageType: SQL\\n      tags: [ ]\\n      specific:\\n        database: TEST_AIRBYTE\\n        schema: PUBLIC\\n        tables:\\n          - tableName: table1\\n            schema:\\n            - name: id\\n              dataType: TEXT\\n              constraint: PRIMARY_KEY\\n            - name: name\\n              dataType: TEXT\\n            - name: phone\\n              dataType: NUMBER\\n              constraint: NULL\\n          - tableName: table2\\n            schema:\\n              - name: id\\n                dataType: TEXT\\n                constraint: PRIMARY_KEY\\n              - name: name\\n                dataType: TEXT\\n                constraint: NOT_NULL\\n              - name: phone\\n                dataType: NUMBER\\n                constraint: UNIQUE\\ncomponentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1\",\r\n    \"descriptorKind\": \"DATAPRODUCT_DESCRIPTOR\",\r\n    \"removeData\": false\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{url}}/v1/reverse-provisioning/:token/status",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"v1",
+								"reverse-provisioning",
+								":token",
+								"status"
+							],
+							"variable": [
+								{
+									"key": "token",
+									"value": "a-token"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "swagger",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{url}}/swagger",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"swagger"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "build-info",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{url}}/build-info",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"build-info"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "v2",
+			"item": [
+				{
+					"name": "validate",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"descriptor\": \"Hi\",\r\n    \"descriptorKind\": \"DATAPRODUCT_DESCRIPTOR\",\r\n    \"removeData\": false\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{url}}/v2/validate",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"v2",
+								"validate"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "provision",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"descriptor\": \"Hi\",\r\n    \"descriptorKind\": \"DATAPRODUCT_DESCRIPTOR\",\r\n    \"removeData\": false\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{url}}/v2/validate/:token/status",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"v2",
+								"validate",
+								":token",
+								"status"
+							],
+							"variable": [
+								{
+									"key": "token",
+									"value": "a-token"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "url",
+			"value": "http://localhost:8093",
+			"type": "default"
+		}
+	]
+}

@@ -4,15 +4,17 @@ import sbt._
 object Dependencies {
 
   private[this] object akka {
-    lazy val namespace     = "com.typesafe.akka"
-    lazy val actorTyped    = namespace                       %% "akka-actor-typed"     % akkaVersion
-    lazy val stream        = namespace                       %% "akka-stream-typed"    % akkaVersion
-    lazy val http          = namespace                       %% "akka-http"            % akkaHttpVersion
-    lazy val httpSprayJson = namespace                       %% "akka-http-spray-json" % akkaHttpVersion
-    lazy val httpCirceJson = "de.heikoseeberger"             %% "akka-http-circe"      % akkaHttpJsonVersion
-    lazy val httpJson4s    = "de.heikoseeberger"             %% "akka-http-json4s"     % akkaHttpJsonVersion
-    lazy val management    = "com.lightbend.akka.management" %% "akka-management"      % akkaManagementVersion
-    lazy val slf4j         = namespace                       %% "akka-slf4j"           % akkaVersion
+    lazy val namespace       = "com.typesafe.akka"
+    lazy val actorTyped      = namespace                       %% "akka-actor-typed"     % akkaVersion
+    lazy val stream          = namespace                       %% "akka-stream-typed"    % akkaVersion
+    lazy val http            = namespace                       %% "akka-http"            % akkaHttpVersion
+    lazy val httpSprayJson   = namespace                       %% "akka-http-spray-json" % akkaHttpVersion
+    lazy val httpCirceJson   = "de.heikoseeberger"             %% "akka-http-circe"      % akkaHttpJsonVersion
+    lazy val httpJson4s      = "de.heikoseeberger"             %% "akka-http-json4s"     % akkaHttpJsonVersion
+    lazy val management      = "com.lightbend.akka.management" %% "akka-management"      % akkaManagementVersion
+    lazy val slf4j           = namespace                       %% "akka-slf4j"           % akkaVersion
+    lazy val akkaTestKit     = "com.typesafe.akka"             %% "akka-testkit"         % akkaVersion
+    lazy val akkaHttpTestKit = "com.typesafe.akka"             %% "akka-http-testkit"    % akkaHttpVersion
   }
 
   private[this] object circe {
@@ -108,7 +110,9 @@ object Dependencies {
       openapi4j.operationValidator % Compile,
       snowflake.jdbc               % Compile,
       scalatest.core               % Test,
-      scalamock.core               % Test
+      scalamock.core               % Test,
+      akka.akkaTestKit             % Test,
+      akka.akkaHttpTestKit         % Test
     )
 
     lazy val client: Seq[ModuleID] = Seq(

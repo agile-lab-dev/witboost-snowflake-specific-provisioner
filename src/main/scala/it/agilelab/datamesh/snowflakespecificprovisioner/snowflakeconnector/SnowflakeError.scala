@@ -57,7 +57,7 @@ final case class UnsupportedOperationError(
     override val problems: List[String] = List.empty,
     override val solutions: List[String] = List.empty
 ) extends SnowflakeSystemError {
-  override def userMessage: String = s"Unsupported opperation: $unsupportedOp"
+  override def userMessage: String = s"Unsupported operation: $unsupportedOp"
 }
 
 trait SnowflakeValidationError extends SnowflakeError
@@ -68,7 +68,7 @@ final case class ProvisioningValidationError(
     override val problems: List[String] = List.empty,
     override val solutions: List[String] = List.empty
 ) extends SnowflakeValidationError {
-  override val userMessage: String = s"Error while execute the provisioning phase"
+  override val userMessage: String = s"Error while executing the provisioning phase"
 }
 
 final case class ParseError(
