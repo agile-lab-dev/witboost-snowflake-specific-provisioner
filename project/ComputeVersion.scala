@@ -1,7 +1,7 @@
 import scala.sys.process._
 import scala.util.matching.Regex
 
-/** It computes the project version starting from git repository information
+/** It computes the project version starting from env variable or git repository information
  *  A release branch should be in the form MAJOR.MINOR.x and the resulting version is computed in the following way:
  *   1) if there are no tags associated to this branch in the form vMAJOR.MINOR.BUILD the resulting version is MAJOR.MINOR.1-SNAPSHOT
  *   2) if there are tags then the BUILD number is computed as the max among all the tags build numbers incremented by one and
@@ -19,15 +19,18 @@ object ComputeVersion {
 
   val tag: Regex = "v([0-9]\\d*)\\.(\\d+)\\.(\\d+)".r
 
-  lazy val version: String = gitOutput match {
-    case tag(major, minor, build)        => s"$major.$minor.$build"
-    case releaseBranch(major, minor, _*) =>
-      val out = s"""git tag --list v$major.$minor*""".lineStream_!.toList
-      if (out.isEmpty) s"$major.$minor.1-SNAPSHOT"
-      else {
-        val lastBuildVersion = out.map(_.split("\\.")(2)).map(_.toInt).foldLeft(0)(Math.max)
-        s"$major.$minor.${(lastBuildVersion + 1).toString}-SNAPSHOT"
+  lazy val version: String = sys.env.get("VERSION") match {
+    case Some(version) => version
+    case None          => gitOutput match {
+        case tag(major, minor, build)        => s"$major.$minor.$build"
+        case releaseBranch(major, minor, _*) =>
+          val out = s"""git tag --list v$major.$minor*""".lineStream_!.toList
+          if (out.isEmpty) s"$major.$minor.1-SNAPSHOT"
+          else {
+            val lastBuildVersion = out.map(_.split("\\.")(2)).map(_.toInt).foldLeft(0)(Math.max)
+            s"$major.$minor.${(lastBuildVersion + 1).toString}-SNAPSHOT"
+          }
+        case _                               => "0.0.0"
       }
-    case _                               => "0.0.0"
   }
 }

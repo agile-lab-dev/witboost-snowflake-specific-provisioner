@@ -100,7 +100,7 @@ lazy val clientGenerated = project.in(file("client-generated")).settings(
   scalacOptions                                        := Seq(),
   libraryDependencies                                  := Dependencies.Jars.client,
   coverageEnabled                                      := false,
-  app.k8ty.sbt.gitlab.K8tyGitlabPlugin.gitlabProjectId := "34805714"
+  app.k8ty.sbt.gitlab.K8tyGitlabPlugin.gitlabProjectId := "40084569"
 ).enablePlugins(K8tyGitlabPlugin)
 
 lazy val root = (project in file(".")).settings(

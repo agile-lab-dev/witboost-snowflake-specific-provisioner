@@ -87,17 +87,10 @@ build:
     apt-get update -yqq
     apt-get install -yqq docker-ce-cli
     apt-get install -yqq npm
-    npm install @openapitools/openapi-generator-cli -g
+    npm install @openapitools/openapi-generator-cli@2.7.0 -g
     docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    echo "VERSION: $VERSION"
     sbt clean generateCode compile k8tyGitlabCIPublish docker:publish
-    echo VERSION=$(sbt -Dsbt.log.noformat=true 'inspect actual version' | grep "Setting: java.lang.String" | cut -d '=' -f2 | tr -d ' ') >> vars.env
-    echo COMMIT=`git log -1 --pretty=%B | head -n 1 | iconv -t ascii//TRANSLIT | sed -r s/[^a-zA-Z0-9]+/-/g | sed -r s/^-+\|-+$//g | tr A-Z a-z` >> vars.env
-    cat vars.env
-  artifacts:
-    reports:
-      dotenv: vars.env
-  only:
-    - master
 
 witboost.helm.deploy:
   stage: package
