@@ -110,10 +110,7 @@ lazy val root = (project in file(".")).settings(
   dockerBaseImage             := "adoptopenjdk:11-jdk-hotspot",
   dockerUpdateLatest          := true,
   daemonUser                  := "daemon",
-  Docker / version            := s"${
-    val buildVersion = (ThisBuild / version).value
-    if (buildVersion == "latest") buildVersion else s"v$buildVersion"
-  }".toLowerCase,
+  Docker / version            := (ThisBuild / version).value,
   Docker / packageName        :=
     s"registry.gitlab.com/agilefactory/witboost.mesh/provisioning/sandbox/witboost.mesh.provisioning.sandbox.snowflakespecificprovisioner",
   Docker / dockerExposedPorts := Seq(8080),
