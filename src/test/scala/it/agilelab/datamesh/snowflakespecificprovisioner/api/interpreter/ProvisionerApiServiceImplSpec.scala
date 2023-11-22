@@ -79,10 +79,11 @@ class ProvisionerApiServiceImplSpec
     }
 
   it should "synchronously provision when a valid descriptor is passed as input" in {
-    val yaml    = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1.yml")
-    val request = ProvisioningRequest(DATAPRODUCT_DESCRIPTOR, descriptor = yaml, removeData = false)
-
-    val _ = (snowflakeManager.executeProvision _).expects(*).returns(Right(()))
+    val yaml                   = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1.yml")
+    val request                = ProvisioningRequest(DATAPRODUCT_DESCRIPTOR, descriptor = yaml, removeData = false)
+    val mockProvisioningStatus =
+      ProvisioningStatus(ProvisioningStatusEnums.StatusEnum.COMPLETED, "Provisioning completed", None, None)
+    val _ = (snowflakeManager.executeProvision _).expects(*).returns(Right(Some(mockProvisioningStatus)))
 
     Post("/v1/provision", request) ~> api.route ~> check {
       val response = responseAs[ProvisioningStatus]

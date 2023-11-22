@@ -27,12 +27,20 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfi
 import java.sql.{Connection, DriverManager, ResultSet}
 import java.util.Properties
 import scala.util.{Failure, Right, Success, Try}
+import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningStatus
+import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningStatusEnums
+import it.agilelab.datamesh.snowflakespecificprovisioner.model.Info
+import it.agilelab.datamesh.snowflakespecificprovisioner.api.dto.SnowflakeOutputPortDetailsDto
+import it.agilelab.datamesh.snowflakespecificprovisioner.system.RealApplicationConfiguration
 
 class SnowflakeManager extends LazyLogging {
 
-  val queryBuilder = new QueryHelper
+  val queryBuilder        = new QueryHelper
+  val provisionInfoHelper = new ProvisionInfoHelper(RealApplicationConfiguration)
 
-  def provisionOutputPort(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = {
+  def provisionOutputPort(
+      descriptor: ProvisioningRequestDescriptor
+  ): Either[SnowflakeError, Option[ProvisioningStatus]] = {
     logger.info("Starting output port provisioning")
     for {
       connection      <- getConnection
@@ -43,11 +51,18 @@ class SnowflakeManager extends LazyLogging {
       viewStatement   <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_VIEW)
       _               <- executeStatement(connection, viewStatement)
       _ = executeUpdateAcl(descriptor, Seq(descriptor.dataProduct.dataProductOwner))
-      _ <- validateSchema(connection, descriptor).left.map { err =>
+      _                      <- validateSchema(connection, descriptor).left.map { err =>
         unprovisionOutputPort(descriptor)
         err
       }
-    } yield ()
+      outputProvisioningInfo <- provisionInfoHelper.getProvisioningInfo(descriptor)
+      _                      <- Right(descriptor)
+    } yield Some(ProvisioningStatus(
+      ProvisioningStatusEnums.StatusEnum.COMPLETED,
+      "Provisioning completed",
+      Some(Info(publicInfo = SnowflakeOutputPortDetailsDto.encode(outputProvisioningInfo), privateInfo = "")),
+      None
+    ))
   }
 
   def unprovisionOutputPort(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = {
@@ -83,7 +98,9 @@ class SnowflakeManager extends LazyLogging {
     } yield ()
   }
 
-  def provisionStorage(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = {
+  def provisionStorage(
+      descriptor: ProvisioningRequestDescriptor
+  ): Either[SnowflakeError, Option[ProvisioningStatus]] = {
     logger.info("Starting storage provisioning")
     for {
       connection      <- getConnection
@@ -96,7 +113,7 @@ class SnowflakeManager extends LazyLogging {
         case statement if statement.nonEmpty => executeMultipleStatement(connection, tablesStatement)
         case _                               => Right(logger.info("Skipping table creation - no information provided"))
       }
-    } yield ()
+    } yield None
   }
 
   def unprovisionStorage(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = {
@@ -111,7 +128,7 @@ class SnowflakeManager extends LazyLogging {
     } yield ()
   }
 
-  def executeProvision(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] =
+  def executeProvision(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Option[ProvisioningStatus]] =
     descriptor.getComponentToProvision match {
       case Some(component) => component.getKind match {
           case Right(kind) if kind.equals(STORAGE)     => provisionStorage(descriptor)

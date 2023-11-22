@@ -1,0 +1,134 @@
+dataProduct:
+  environment: development
+  domain: finance
+  kind: dataproduct
+  domainId: urn:dmb:dmn:finance
+  id: urn:dmb:dp:finance:airflow-end-to-end-test:0
+  description: To perform end to end testing
+  devGroup: agile_lab
+  ownerGroup: sahith.yerram_agilelab.it
+  name: Airflow End To End Test
+  fullyQualifiedName: null
+  version: 0.2.0-SNAPSHOT-1
+  useCaseTemplateId: urn:dmb:utm:dataproduct-aws-cdp-template:0.0.0
+  infrastructureTemplateId: urn:dmb:itm:cdp-aws-dataproduct-provisioner:1
+  dataProductOwner: user:sahith.yerram_agilelab.it
+  email: sahith.yerram@agilelab.it
+  informationSLA: null
+  status: Draft
+  maturity: null
+  billing: {}
+  tags: []
+  specific:
+    cdpEnvironment: CDP
+  components:
+    - kind: workload
+      id: urn:dmb:cmp:finance:airflow-end-to-end-test:0:airflow-workload
+      description: To test the Data Product
+      name: Airflow Workload
+      fullyQualifiedName: null
+      version: 0.0.0
+      infrastructureTemplateId: urn:dmb:itm:aws-workload-airflow-provisioner:0
+      useCaseTemplateId: urn:dmb:utm:aws-airflow-workload-template:0.0.0
+      dependsOn: []
+      platform: AWS
+      technology: airflow
+      workloadType: batch
+      connectionType: DataPipeline
+      tags: []
+      readsFrom: []
+      specific:
+        sourceBucket: aws-ia-mwaa-eu-central-1-278435202378
+        destinationBucket: aws-ia-mwaa-eu-central-1-278435202378
+        scheduleCron: 5 5 * * *
+        sourceDag: letssee/airbyte_snowflake_dag.py
+        destinationDag: dags/airbyte_snowflake_dag.py
+        destinationSql: dags/snowflake.sql
+        connectionName: GoogleCovidDataset <> Snowflake
+    - kind: workload
+      id: urn:dmb:cmp:finance:airflow-end-to-end-test:0:dbt-transformation-workload
+      description: uuu
+      name: DBT Transformation Workload
+      fullyQualifiedName: null
+      version: 0.0.0
+      infrastructureTemplateId: urn:dmb:itm:aws-workload-dbt-transformation-provisioner:0
+      useCaseTemplateId: urn:dmb:utm:aws-workload-dbt-transformation-template:0.0.0
+      dependsOn: []
+      platform: AWS
+      technology: airflow
+      workloadType: batch
+      connectionType: DataPipeline
+      tags: []
+      specific:
+        gitUrl: https://gitlab.com/AgileFactory/Witboost.Mesh/mesh.repository/sandbox/dbtoneone.git
+    - kind: outputport
+      id: urn:dmb:cmp:finance:airflow-end-to-end-test:0:snowflake-output-port
+      description: nnn
+      name: Snowflake Output Port
+      fullyQualifiedName: null
+      version: 0.0.0
+      infrastructureTemplateId: urn:dmb:itm:snowflake-outputport-provisioner:0
+      useCaseTemplateId: urn:dmb:utm:snowflake-outputport-template:0.0.0
+      dependsOn: []
+      platform: Snowflake
+      technology: Snowflake
+      outputPortType: SQL
+      creationDate: 2022-12-05T15:01:11.985Z
+      startDate: 2022-12-05T15:01:11.985Z
+      dataContract:
+        schema:
+          - name: date
+            dataType: TEXT
+            constraint: NO CONSTRAINT
+          - name: location_key
+            dataType: TEXT
+            constraint: NO CONSTRAINT
+          - name: new_confirmed
+            dataType: NUMBER
+            constraint: NO CONSTRAINT
+          - name: new_deceased
+            dataType: NUMBER
+            constraint: NO CONSTRAINT
+          - name: new_recovered
+            dataType: NUMBER
+            constraint: NO CONSTRAINT
+          - name: new_tested
+            dataType: NUMBER
+            constraint: NO CONSTRAINT
+          - name: cumulative_confirmed
+            dataType: NUMBER
+            constraint: NO CONSTRAINT
+          - name: cumulative_deceased
+            dataType: NUMBER
+            constraint: NO CONSTRAINT
+          - name: cumulative_recovered
+            dataType: NUMBER
+            constraint: NO CONSTRAINT
+          - name: cumulative_tested
+            dataType: NUMBER
+            constraint: NO CONSTRAINT
+      tags: []
+      sampleData: {}
+      semanticLinking: []
+      specific:
+        database: test
+        schema: test
+        viewName: output_port_view
+        tableName: GOOGLE_COVID_DATASET
+    - kind: workload
+      id: urn:dmb:cmp:finance:airflow-end-to-end-test:0:snowflake-sql-workload
+      description: test of uploading a file
+      name: Snowflake SQL Workload
+      fullyQualifiedName: null
+      version: 0.0.0
+      infrastructureTemplateId: urn:dmb:itm:aws-workload-snowflake-sql-provisioner:0
+      useCaseTemplateId: urn:dmb:utm:aws-workload-snowflake-sql-template:0.0.0
+      dependsOn: []
+      platform: AWS
+      technology: airflow
+      workloadType: batch
+      connectionType: DataPipeline
+      tags: []
+      readsFrom: []
+      specific: {}
+componentIdToProvision: urn:dmb:cmp:finance:airflow-end-to-end-test:0:snowflake-output-port

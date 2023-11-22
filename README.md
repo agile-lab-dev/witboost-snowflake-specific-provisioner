@@ -94,7 +94,7 @@ To run the server locally, use:
 sbt generateCode compile run
 ```
 
-By default, the server binds to port 8093 on localhost. After it's up and running you can make provisioning requests to this address. You can also check the API documentation served [here](http://127.0.0.1:8093/datamesh.mwaaspecificprovisioner/0.0/swagger/docs/index.html).
+By default, the server binds to port 8093 on localhost. After it's up and running you can make provisioning requests to this address. You can also check the API documentation served [here](http://127.0.0.1:8093/swagger/docs/index.html).
 
 ## Configuring
 

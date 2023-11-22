@@ -66,9 +66,14 @@ class ProvisionerApiServiceImpl(snowflakeManager: SnowflakeManager)
       case Left(e: SnowflakeValidationError) =>
         logger.error("Validation error: ", e)
         provision400(ModelConverter.buildRequestValidationError(e))
-      case Right(_)                          =>
-        logger.info("OK")
-        provision200(ProvisioningStatus(ProvisioningStatusEnums.StatusEnum.COMPLETED, result = "OK"))
+      case Right(eitherResult)               => eitherResult match {
+          case None         =>
+            logger.info("OK")
+            provision200(ProvisioningStatus(ProvisioningStatusEnums.StatusEnum.COMPLETED, result = "OK"))
+          case Some(status) =>
+            logger.info("OK")
+            provision200(status)
+        }
       case error                             =>
         logger.error("Generic error. Received {}", error)
         provision500(SystemError("Generic error"))
