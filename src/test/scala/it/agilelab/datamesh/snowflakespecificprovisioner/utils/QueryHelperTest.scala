@@ -2,10 +2,6 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.utils
 
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.test.getTestResourceAsString
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
-import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, ConstraintType, DataType}
-import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.QueryHelper
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   CREATE_DB,
   CREATE_SCHEMA,
@@ -14,6 +10,10 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   DELETE_SCHEMA,
   DELETE_TABLES
 }
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, ConstraintType, DataType}
+import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.QueryHelper
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 class QueryHelperTest extends AnyFlatSpec with Matchers {
   val queryHelper = new QueryHelper
@@ -251,27 +251,6 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
     val customViewName      = queryHelper.getCustomViewName(customViewStatement)
 
     customViewName should be(None)
-  }
-
-  "mapUserToSnowflakeUser method" should "return the correct Snowflake user. Use case 1" in {
-    val user          = "user:marco.pisasale_agilelab.it"
-    val snowflakeUser = queryHelper.mapUserToSnowflakeUser(user)
-
-    snowflakeUser should be("MARCO.PISASALE@AGILELAB.IT")
-  }
-
-  "mapUserToSnowflakeUser method" should "return the correct Snowflake user. Use case 2" in {
-    val user          = "marco.pisasale@agilelab.it"
-    val snowflakeUser = queryHelper.mapUserToSnowflakeUser(user)
-
-    snowflakeUser should be("MARCO.PISASALE@AGILELAB.IT")
-  }
-
-  "mapUserToSnowflakeUser method" should "return the correct Snowflake user. Use case 3" in {
-    val user          = "user:marco_pisasale_agilelab.it"
-    val snowflakeUser = queryHelper.mapUserToSnowflakeUser(user)
-
-    snowflakeUser should be("MARCO_PISASALE@AGILELAB.IT")
   }
 
 }

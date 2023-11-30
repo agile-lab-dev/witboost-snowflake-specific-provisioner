@@ -39,4 +39,4 @@ Output Ports are implemented as views on top of tables form a Storage Area. The 
 
 ### ACL management
 
-The permissions/ACL management is what materializes the permissions that are granted via the access request flow. The flow starts when a user requests access to an Output Port of a Data Product published in the marketplace. If the request is accepted by the Data Product owner, the Specific provisioner is instructed to update the permissions. Permission management uses Snowflake's grant system to allow view/table level access to the data based on the user's identity and/or groups.
+The permissions/ACL management is what materializes the permissions that are granted via the access request flow. The flow starts when a user requests access to an Output Port of a Data Product published in the marketplace. If the request is accepted by the Data Product owner, the Specific provisioner is instructed to update the permissions. Permission management uses Snowflake's grant system to allow view/table level access to the data based on the user's identity, excluding groups as these are not supported by Snowflake.

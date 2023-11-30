@@ -118,5 +118,4 @@ lazy val root = (project in file(".")).settings(
   scalafixOnCompile           := true,
   semanticdbEnabled           := true,
   semanticdbVersion           := scalafixSemanticdb.revision
-).aggregate(clientGenerated).dependsOn(serverGenerated).enablePlugins(JavaAppPackaging, MultiJvmPlugin)
-  .configs(MultiJvm).setupBuildInfo
+).aggregate(clientGenerated).dependsOn(serverGenerated).enablePlugins(JavaAppPackaging).setupBuildInfo

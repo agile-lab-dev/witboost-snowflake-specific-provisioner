@@ -14,7 +14,7 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.api.intepreter.{
   ProvisionerApiServiceImpl
 }
 import it.agilelab.datamesh.snowflakespecificprovisioner.server.Controller
-import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.SnowflakeManager
+import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.{SnowflakeExecutor, SnowflakeManager}
 import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.httpPort
 
 import scala.jdk.CollectionConverters._
@@ -26,8 +26,9 @@ object Main extends LazyLogging {
       import akka.actor.typed.scaladsl.adapter._
       implicit val classicSystem: actor.ActorSystem = context.system.toClassic
 
-      val snowflakeManager = new SnowflakeManager
-      val impl             = new ProvisionerApiServiceImpl(snowflakeManager)
+      val snowflakeExecutor = new SnowflakeExecutor
+      val snowflakeManager  = new SnowflakeManager(snowflakeExecutor)
+      val impl              = new ProvisionerApiServiceImpl(snowflakeManager)
 
       val api = new SpecificProvisionerApi(
         impl,
@@ -56,6 +57,7 @@ object Main extends LazyLogging {
       )
 
       val _ = Http().newServerAt("0.0.0.0", port).bind(controller.routes)
+      logger.info("Server bound to port {}", port)
       Behaviors.empty
     },
     BuildInfo.name.replaceAll("""\.""", "-")

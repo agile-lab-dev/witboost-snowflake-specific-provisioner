@@ -135,11 +135,12 @@ class ProvisionerApiServiceImplSpec
     Post("/v1/unprovision", request) ~> api.route ~> check(response.status shouldEqual StatusCodes.InternalServerError)
   }
 
-  it should "synchronously updateacl when a invalid request is passed as input" in {
+  it should "synchronously updateacl when a valid request is passed as input" in {
     val yaml    = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1.yml")
-    val request = UpdateAclRequest(List("sergio.mejia_agilelab.it"), ProvisionInfo(yaml, "res"))
+    val refs    = List("user:sergio.mejia_agilelab.it")
+    val request = UpdateAclRequest(refs, ProvisionInfo(yaml, "res"))
 
-    val _ = (snowflakeManager.executeUpdateAcl _).expects(*, *).returns(Right(()))
+    val _ = (snowflakeManager.executeUpdateAcl _).expects(*, *).returns(Right(refs))
 
     Post("/v1/updateacl", request) ~> api.route ~> check {
       val response = responseAs[ProvisioningStatus]

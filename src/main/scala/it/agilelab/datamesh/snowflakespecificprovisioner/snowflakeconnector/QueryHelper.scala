@@ -183,14 +183,7 @@ class QueryHelper extends LazyLogging {
   def deleteRoleStatement(roleName: String): String = s"DROP ROLE IF EXISTS $roleName;"
 
   def assignRoleToUserStatement(roleName: String, users: Seq[String]): Seq[String] = users
-    .map(user => s"GRANT ROLE $roleName TO USER \"${mapUserToSnowflakeUser(user)}\";")
-
-  def mapUserToSnowflakeUser(user: String): String = {
-    val cleanUser       = user.replace("user:", "").toUpperCase
-    val underscoreIndex = cleanUser.lastIndexOf("_")
-    if (underscoreIndex.equals(-1)) { cleanUser }
-    else { cleanUser.substring(0, underscoreIndex) + "@" + cleanUser.substring(underscoreIndex + 1) }
-  }
+    .map(user => s"GRANT ROLE $roleName TO USER \"$user\";")
 
   def buildRoleName(dbName: String, schemaName: String, viewName: String): String =
     s"${dbName}_${schemaName}_${viewName}_ACCESS"
@@ -272,6 +265,8 @@ class QueryHelper extends LazyLogging {
   def getCustomDatabaseName(query: String): Option[String] = getCustomViewDetails(query).get("dbName")
   def getCustomSchemaName(query: String): Option[String]   = getCustomViewDetails(query).get("schemaName")
   def getCustomViewName(query: String): Option[String]     = getCustomViewDetails(query).get("viewName")
+
+  val alterSessionToJsonResult: String = "ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'"
 
   def getTables(component: ComponentDescriptor): List[TableSpec] =
     component.specific.hcursor.downField("tables").as[List[TableSpec]] match {
