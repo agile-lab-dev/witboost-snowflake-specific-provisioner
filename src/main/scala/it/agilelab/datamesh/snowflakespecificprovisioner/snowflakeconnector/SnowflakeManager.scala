@@ -219,10 +219,12 @@ class SnowflakeManager(executor: QueryExecutor) extends LazyLogging {
     }
   }
 
-  def validateSchema(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = for {
-    connection        <- executor.getConnection
-    validateStatement <- queryBuilder.buildOutputPortStatement(descriptor, DESCRIBE_VIEW)
-    component         <- queryBuilder.getComponent(descriptor)
+  /** This methods checks the consistency of the descriptor
+   *  @param descriptor the request descriptor
+   *  @return a SnowflakeError if the validation fails, Unit otherwise
+   */
+  def validateDescriptor(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = for {
+    component <- queryBuilder.getComponent(descriptor)
     customViewStatement = queryBuilder.getCustomViewStatement(component)
     result <-
       if (customViewStatement.isEmpty) {
@@ -231,46 +233,68 @@ class SnowflakeManager(executor: QueryExecutor) extends LazyLogging {
       } else {
         for {
           // Retrieves view name both from the custom view and from the view name specific field
-          customViewName  <- queryBuilder.getCustomViewName(customViewStatement).toRight(ParseError(
+          customViewName <- queryBuilder.getCustomViewName(customViewStatement).toRight(ParseError(
             Some(customViewStatement),
             None,
             List("Error while retrieving the view name from the custom view statement")
           ))
-          viewName        <- queryBuilder.getViewName(component)
+          viewName       <- queryBuilder.getViewName(component)
           // Compares custom view name and view name and these must be equal
-          _               <-
+          result         <-
             if (!viewName.equals(customViewName)) {
               val problem = "The view name from the custom statement (" + customViewName +
                 ") does not match with the one specified inside the descriptor (" + viewName + ")"
-
               logger.info(problem)
               Left(SchemaValidationError(descriptor.getComponentToProvision.map(_.toString), List(problem)))
             } else Right(())
-
-          // Retrieves schema from the component descriptor
-          schema          <- queryBuilder.getTableSchema(component)
-          // Compare existing schema on Snowflake with the schema in the descriptor using a Describe View statement
-          alterStatement  <- executor.executeQuery(connection, queryBuilder.alterSessionToJsonResult)
-          resultSet       <- executor.executeQuery(connection, validateStatement)
-          executionResult <- Either.cond[SnowflakeError, Unit](
-            compareSchemas(schema, resultSet),
-            (), {
-              val err = SchemaValidationError(
-                descriptor.getComponentToProvision.map(_.toString),
-                List(
-                  "Schema validation failed: the custom view schema doesn't match with the one specified inside the schema field on the descriptor"
-                )
-              )
-              logger.error("Error, schemas are not equal: ", err)
-              err
-            }
-          )
-          _               <- {
-            alterStatement.close()
-            Right(())
-          }
-        } yield executionResult
+        } yield result
       }
+  } yield result
+
+  /** This methods checks the consistency of the specific fields of the descriptor. The validation logic depends on the Kind
+   *  @param descriptor the request descriptor
+   *  @return a SnowflakeError if the validation fails, Unit otherwise
+   */
+  def validateSpecificFields(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = for {
+    component <- queryBuilder.getComponent(descriptor)
+    kind      <- component.getKind
+    res       <- kind match {
+      case OUTPUT_PORT => queryBuilder.getTableSchema(component).map(_ => ())
+      case STORAGE     => queryBuilder.getTables(component).map(_ => ())
+      case unsupported => Left(ParseError(problems = List(s"The specified kind $unsupported is not supported")))
+    }
+  } yield res
+
+  def validateSchema(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = for {
+    _                 <- validateDescriptor(descriptor)
+    connection        <- executor.getConnection
+    validateStatement <- queryBuilder.buildOutputPortStatement(descriptor, DESCRIBE_VIEW)
+    component         <- queryBuilder.getComponent(descriptor)
+    result            <- for {
+      // Retrieves schema from the component descriptor
+      schema          <- queryBuilder.getTableSchema(component)
+      // Compare existing schema on Snowflake with the schema in the descriptor using a Describe View statement
+      alterStatement  <- executor.executeQuery(connection, queryBuilder.alterSessionToJsonResult)
+      resultSet       <- executor.executeQuery(connection, validateStatement)
+      executionResult <- Either.cond[SnowflakeError, Unit](
+        compareSchemas(schema, resultSet),
+        (), {
+          val err = SchemaValidationError(
+            descriptor.getComponentToProvision.map(_.toString),
+            List(
+              "Schema validation failed: the custom view schema doesn't match with the one specified inside the schema field on the descriptor"
+            )
+          )
+          logger.error("Error, schemas are not equal: ", err)
+          err
+        }
+      )
+      _               <- {
+        alterStatement.close()
+        Right(())
+      }
+    } yield executionResult
+
   } yield result
 
   def compareSchemas(schemaFromDescriptor: List[ColumnSchemaSpec], schemaFromCustomView: ResultSet): Boolean = {

@@ -96,4 +96,114 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
     list.mergeSequence() shouldEqual Left(expectedError)
   }
 
+  it should "successfully validate a correct descriptor" in {
+
+    val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_6.yml")
+    val prd  = ProvisioningRequestDescriptor(yaml).toOption.get
+
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val res              = snowflakeManager.validateDescriptor(prd)
+
+    res.isRight shouldBe true
+
+  }
+
+  it should "fail to validate a descriptor with mismatching schemas" in {
+
+    val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_7_custom_view_wrong.yml")
+    val prd  = ProvisioningRequestDescriptor(yaml).toOption.get
+
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val res              = snowflakeManager.validateDescriptor(prd)
+
+    res.isRight shouldBe false
+    res.left.foreach(value => value.problems.head should (include("jhon").and(include("snowflake_view"))))
+
+  }
+
+  it should "fail to validate a descriptor without a specified custom view" in {
+
+    val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_5.yml")
+    val prd  = ProvisioningRequestDescriptor(yaml).toOption.get
+
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val res              = snowflakeManager.validateDescriptor(prd)
+
+    res.isRight shouldBe true
+
+  }
+
+  it should "fail to validate if the descriptor contains a wrong view name in the customView" in {
+
+    val yaml             = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_8_view_wrong.yml")
+    val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val res              = snowflakeManager.validateDescriptor(prd)
+
+    res.isLeft shouldBe true
+    res.left.foreach(value => value.problems.head should (include("Error while retrieving the view name")))
+
+  }
+
+  it should "successfully validate a descriptor with matching views" in {
+
+    val yaml             = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_5_custom_view.yml")
+    val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val res              = snowflakeManager.validateDescriptor(prd)
+
+    res.isRight shouldBe true
+
+  }
+
+  it should "fail to validate an outputport descriptor without dataContract field" in {
+
+    val yaml             = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_9_no_data_contract.yml")
+    val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+
+    val res1 = snowflakeManager.validateDescriptor(prd)
+    res1.isRight shouldBe true
+
+    val res2 = snowflakeManager.validateSpecificFields(prd)
+
+    res2.isLeft shouldBe true
+    res2.left.foreach(value =>
+      value.problems.head should (include("Attempt to decode value on failed cursor").and(include("dataContract")))
+    )
+  }
+
+  it should "fail to validate a storage descriptor without tables field" in {
+
+    val yaml             = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_7_no_tables.yml")
+    val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+
+    val res1 = snowflakeManager.validateDescriptor(prd)
+    res1.isRight shouldBe true
+
+    val res2 = snowflakeManager.validateSpecificFields(prd)
+
+    res2.isLeft shouldBe true
+    res2.left.foreach(value =>
+      value.problems.head should (include("Attempt to decode value on failed cursor").and(include("tables")))
+    )
+  }
+
+  it should "fail to validate a descriptor with a wrong kind" in {
+
+    val yaml             = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_8_wrong_kind.yml")
+    val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+
+    val res1 = snowflakeManager.validateDescriptor(prd)
+    res1.isRight shouldBe true
+
+    val res2 = snowflakeManager.validateSpecificFields(prd)
+
+    res2.isLeft shouldBe true
+    res2.left
+      .foreach(value => value.problems.head should (include("The specified kind").and(include("is not supported"))))
+  }
+
 }

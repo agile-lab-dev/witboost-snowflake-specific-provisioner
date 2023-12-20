@@ -87,7 +87,14 @@ class ProvisionerApiServiceImpl(snowflakeManager: SnowflakeManager)
       contexts: Seq[(String, String)],
       toEntityMarshallerSystemError: ToEntityMarshaller[SystemError],
       toEntityMarshallerValidationResult: ToEntityMarshaller[ValidationResult]
-  ): Route = validate200(ValidationResult(valid = true))
+  ): Route = (for {
+    prd <- ProvisioningRequestDescriptor(provisioningRequest.descriptor)
+    _   <- snowflakeManager.validateDescriptor(prd)
+    res <- snowflakeManager.validateSpecificFields(prd)
+  } yield res) match {
+    case Right(_) => validate200(ValidationResult(valid = true))
+    case Left(l)  => validate200(ValidationResult(valid = false, Some(ValidationError(l.problems))))
+  }
 
   /** Code: 200, Message: It synchronously returns the request result, DataType: ProvisioningStatus
    *  Code: 202, Message: If successful returns a provisioning deployment task token that can be used for polling the request status, DataType: String

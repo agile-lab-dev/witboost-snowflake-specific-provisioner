@@ -53,7 +53,7 @@ class QueryHelper extends LazyLogging {
       component <- getComponent(descriptor)
       dbName     = getDatabaseName(descriptor, component.specific)
       schemaName = getSchemaName(descriptor, component.specific)
-      tables     = getTables(component)
+      tables <- getTables(component)
     } yield operation match {
       case CREATE_TABLES => Right(createTablesStatement(dbName, schemaName, tables))
       case DELETE_TABLES => Right(deleteTablesStatement(dbName, schemaName, tables))
@@ -268,12 +268,11 @@ class QueryHelper extends LazyLogging {
 
   val alterSessionToJsonResult: String = "ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'"
 
-  def getTables(component: ComponentDescriptor): List[TableSpec] =
+  def getTables(component: ComponentDescriptor): Either[SnowflakeError, List[TableSpec]] =
     component.specific.hcursor.downField("tables").as[List[TableSpec]] match {
-      case Right(tables) => tables
+      case Right(tables) => Right(tables)
       case Left(error)   =>
-        logger.error(error.toString())
-        List[TableSpec]()
+        Left(ParseError(Some(component.toString), Some("schema"), List(s"Parse error: ${error.getMessage}")))
     }
 
   def getComponent(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, ComponentDescriptor] = descriptor

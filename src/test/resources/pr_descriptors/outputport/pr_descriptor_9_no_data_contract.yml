@@ -1,0 +1,37 @@
+dataProduct:
+  name: DpOwnerTest
+  environment: dev
+  description: Dataproduct invoice
+  dataProductOwner: group:bigdata
+  dataProductOwnerDisplayName: Group BigData
+  domain: marketing
+  kind: dataproduct
+  email: contact@example.com
+  version: 1.0.0
+  fullyQualifiedName: InvoiceDataProduct
+  displayName: Invoice
+  informationSLA: Info
+  maturity: Tactical
+  billing: {}
+  tags: []
+  id: domain:marketing.Marketing-Invoice-1.1
+  specific: {}
+  components:
+    - id: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1
+      name: Marketing-Invoice-S3-Ingestion-Data-1
+      fullyQualifiedName: Marketing Invoice S3 Ingestion Data
+      description: Marketing Invoice S3 Ingestion Data
+      kind: outputport
+      owners:
+        - group:bigdata
+      infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0
+      useCaseTemplateId: urn:dmb:utm:template-id-1:1.0.0
+      dependsOn: [ ]
+      platform: CDP_AWS
+      technology: CDP_S3
+      tags: [ ]
+      specific:
+        viewName: snowflake_view
+        tableName: snowflake_table
+        customView: CREATE VIEW IF NOT EXISTS TEST_AIRBYTE.PUBLIC.snowflake_view AS (SELECT * FROM TEST_AIRBYTE.PUBLIC.snowflake_table);
+componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

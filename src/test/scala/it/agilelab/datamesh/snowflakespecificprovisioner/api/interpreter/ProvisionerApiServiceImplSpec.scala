@@ -67,10 +67,10 @@ class ProvisionerApiServiceImplSpec
 
   "ProvisionerApiServiceImpl" should
     "synchronously validate with no errors when a valid descriptor is passed as input" in {
-      val request = ProvisioningRequest(DATAPRODUCT_DESCRIPTOR, descriptor = "valid", removeData = false)
-
-      /* TODO when validation is done */
-
+      val yaml    = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1.yml")
+      val request = ProvisioningRequest(DATAPRODUCT_DESCRIPTOR, descriptor = yaml, removeData = false)
+      val _       = (snowflakeManager.validateDescriptor _).expects(*).returns(Right(()))
+      val _       = (snowflakeManager.validateSpecificFields _).expects(*).returns(Right(()))
       Post("/v1/validate", request) ~> api.route ~> check {
         val response = responseAs[ValidationResult]
         response.valid shouldEqual true
