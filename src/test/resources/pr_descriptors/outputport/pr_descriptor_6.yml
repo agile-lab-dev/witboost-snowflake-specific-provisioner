@@ -6,14 +6,14 @@ dataProduct:
   id: urn:dmb:dp:finance:airflow-end-to-end-test:0
   description: To perform end to end testing
   devGroup: agile_lab
-  ownerGroup: sahith.yerram_agilelab.it
+  ownerGroup: dpowners
   name: Airflow End To End Test
   fullyQualifiedName: null
   version: 0.2.0-SNAPSHOT-1
   useCaseTemplateId: urn:dmb:utm:dataproduct-aws-cdp-template:0.0.0
   infrastructureTemplateId: urn:dmb:itm:cdp-aws-dataproduct-provisioner:1
-  dataProductOwner: user:sahith.yerram_agilelab.it
-  email: sahith.yerram@agilelab.it
+  dataProductOwner: user:dpowner_agilelab.it
+  email: contact@agilelab.it
   informationSLA: null
   status: Draft
   maturity: null
@@ -38,8 +38,8 @@ dataProduct:
       tags: []
       readsFrom: []
       specific:
-        sourceBucket: aws-ia-mwaa-eu-central-1-278435202378
-        destinationBucket: aws-ia-mwaa-eu-central-1-278435202378
+        sourceBucket: a-source-bucket-1234
+        destinationBucket: a-dest-bucket-1234
         scheduleCron: 5 5 * * *
         sourceDag: letssee/airbyte_snowflake_dag.py
         destinationDag: dags/airbyte_snowflake_dag.py
@@ -60,7 +60,7 @@ dataProduct:
       connectionType: DataPipeline
       tags: []
       specific:
-        gitUrl: https://gitlab.com/AgileFactory/Witboost.Mesh/mesh.repository/sandbox/dbtoneone.git
+        gitUrl: https://gitlab.com/some/fake/repo.git
     - kind: outputport
       id: urn:dmb:cmp:finance:airflow-end-to-end-test:0:snowflake-output-port
       description: nnn

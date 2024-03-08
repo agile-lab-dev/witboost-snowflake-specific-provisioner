@@ -4,7 +4,14 @@ import cats.data.NonEmptyList
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Json
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.{ComponentDescriptor, ProvisioningRequestDescriptor}
-import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, ConstraintType, TableSpec}
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.DataType.DataType
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{
+  ColumnSchemaSpec,
+  ConstraintType,
+  DataType,
+  SchemaChanges,
+  TableSpec
+}
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   ASSIGN_ROLE,
   CREATE_DB,
@@ -19,11 +26,16 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   DESCRIBE_VIEW,
   OperationType,
   SELECT_ON_VIEW,
+  UPDATE_TABLES,
+  UPDATE_VIEW,
   USAGE_ON_DB,
   USAGE_ON_SCHEMA,
   USAGE_ON_WH
 }
 import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.warehouse
+
+import java.sql.{Connection, ResultSet}
+import scala.collection.mutable.ListBuffer
 
 class QueryHelper extends LazyLogging {
 
@@ -46,20 +58,27 @@ class QueryHelper extends LazyLogging {
 
   def buildMultipleStatement(
       descriptor: ProvisioningRequestDescriptor,
-      operation: OperationType
+      operation: OperationType,
+      schemaChanges: Option[List[SchemaChanges]]
   ): Either[SnowflakeError, Seq[String]] = {
     logger.info("Starting building multiple statements")
-    for {
-      component <- getComponent(descriptor)
-      dbName     = getDatabaseName(descriptor, component.specific)
-      schemaName = getSchemaName(descriptor, component.specific)
-      tables <- getTables(component)
-    } yield operation match {
-      case CREATE_TABLES => Right(createTablesStatement(dbName, schemaName, tables))
-      case DELETE_TABLES => Right(deleteTablesStatement(dbName, schemaName, tables))
-      case unsupportedOp => Left(UnsupportedOperationError(unsupportedOp))
+    val result =
+      for {
+        component <- getComponent(descriptor)
+        dbName     = getDatabaseName(descriptor, component.specific)
+        schemaName = getSchemaName(descriptor, component.specific)
+        tables <- getTables(component)
+      } yield operation match {
+        case CREATE_TABLES => Right(createTablesStatement(dbName, schemaName, tables))
+        case UPDATE_TABLES => updateTablesStatement(dbName, schemaName, tables, schemaChanges.getOrElse(List.empty))
+        case DELETE_TABLES => Right(deleteTablesStatement(dbName, schemaName, tables))
+        case unsupportedOp => Left(UnsupportedOperationError(unsupportedOp))
+      }
+    result match {
+      case Left(error)      => Left(error)
+      case Right(eitherSeq) => eitherSeq
     }
-  }.flatten
+  }
 
   def buildOutputPortStatement(
       descriptor: ProvisioningRequestDescriptor,
@@ -91,6 +110,11 @@ class QueryHelper extends LazyLogging {
       case CREATE_VIEW     => customViewStatement match {
           case customStatement if customStatement.isEmpty =>
             Right(createViewStatement(viewName, dbName, schemaName, tableName, schema))
+          case customStatement                            => Right(customStatement)
+        }
+      case UPDATE_VIEW     => customViewStatement match {
+          case customStatement if customStatement.isEmpty =>
+            Right(updateViewStatement(viewName, dbName, schemaName, tableName, schema))
           case customStatement                            => Right(customStatement)
         }
       case DELETE_VIEW     => Right(deleteViewStatement(dbName, schemaName, viewName))
@@ -163,11 +187,266 @@ class QueryHelper extends LazyLogging {
        |);""".stripMargin
   }
 
+  def createTableSchemaInformationQuery(): String = s"""
+            SELECT C.COLUMN_NAME, C.DATA_TYPE,C.IS_NULLABLE,NULL CONSTRAINT_TYPE, C.TABLE_NAME
+            FROM {CATALOG}.INFORMATION_SCHEMA.COLUMNS as C
+            WHERE C.TABLE_NAME IN ({TABLES}) and C.TABLE_SCHEMA = ? and C.TABLE_CATALOG =?
+            """
+
+  def getPrimaryKeyInformationQuery(): String = s"""
+            SHOW PRIMARY KEYS IN TABLE {CATALOG}.{SCHEMA}.{TABLE}
+            """
+
+  def getUniqueKeyInformationQuery(): String = s"""
+            SHOW UNIQUE KEYS IN TABLE {CATALOG}.{SCHEMA}.{TABLE}
+            """
+
+  def getTableKeysInformation(
+      connection: Connection,
+      dbName: String,
+      schemaName: String,
+      tableName: String,
+      existingSchemaInformationOriginal: Option[TableSpec]
+  ): Option[TableSpec] = {
+
+    val getSchemaPrimaryKeyQuery   = getPrimaryKeyInformationQuery()
+    val getSchemaUniqueKeyQuery    = getUniqueKeyInformationQuery()
+    val queryPrimaryKeyInformation = getSchemaPrimaryKeyQuery.replace("{CATALOG}", dbName)
+      .replace("{SCHEMA}", schemaName).replace("{TABLE}", tableName)
+    val queryUniqueKeyInformation = getSchemaUniqueKeyQuery.replace("{CATALOG}", dbName).replace("{SCHEMA}", schemaName)
+      .replace("{TABLE}", tableName)
+    val primaryKeyStatement       = connection.prepareStatement(queryPrimaryKeyInformation)
+    val primaryKeyResultSet       = primaryKeyStatement.executeQuery()
+    val uniqueKeyStatement        = connection.prepareStatement(queryUniqueKeyInformation)
+    val uniqueKeyResultSet        = uniqueKeyStatement.executeQuery()
+
+    def readPrimaryKeyRecursively(resultSet: ResultSet, acc: List[ColumnSchemaSpec]): List[ColumnSchemaSpec] =
+      if (!resultSet.next()) acc
+      else {
+        val columnName = primaryKeyResultSet.getString("column_name")
+        val dataType   = existingSchemaInformationOriginal.get.schema.find(p => p.name.equals(columnName)).get.dataType
+        val constraint = Some(ConstraintType.PRIMARY_KEY)
+
+        readPrimaryKeyRecursively(resultSet, acc :+ ColumnSchemaSpec(columnName, dataType, constraint))
+      }
+
+    val existingSchemaInformationWithPrimaryKey = readPrimaryKeyRecursively(primaryKeyResultSet, List.empty)
+
+    def readUniqueKeyRecursively(resultSet: ResultSet, acc: List[ColumnSchemaSpec]): List[ColumnSchemaSpec] =
+      if (!resultSet.next()) acc
+      else {
+        val columnName = resultSet.getString("column_name")
+        val dataType   = existingSchemaInformationOriginal.get.schema.find(p => p.name.equals(columnName)).get.dataType
+        val constraint = Some(ConstraintType.UNIQUE)
+
+        readUniqueKeyRecursively(resultSet, acc :+ ColumnSchemaSpec(columnName, dataType, constraint))
+      }
+
+    val existingSchemaInformationWithKey =
+      readUniqueKeyRecursively(uniqueKeyResultSet, existingSchemaInformationWithPrimaryKey)
+
+    primaryKeyStatement.close()
+    primaryKeyResultSet.close()
+    uniqueKeyStatement.close()
+    uniqueKeyResultSet.close()
+
+    val otherColumns = existingSchemaInformationOriginal.get.schema
+      .filter(p => !existingSchemaInformationWithKey.map(_.name).toSet.contains(p.name))
+
+    val existingSchemaInformation = existingSchemaInformationWithKey ++ otherColumns
+
+    Option(TableSpec(tableName, existingSchemaInformation))
+  }
+
+  def updateTableStatement(
+      dbName: String,
+      schemaName: String,
+      tableName: String,
+      schemaChanges: Option[SchemaChanges]
+  ): Either[SnowflakeError, Seq[String]] = {
+    val columnsToAdd: List[ColumnSchemaSpec]              = schemaChanges.get.columnsToAdd
+    val columnsToDelete: List[ColumnSchemaSpec]           = schemaChanges.get.columnsToDelete
+    val columnsToUpdateType: List[ColumnSchemaSpec]       = schemaChanges.get.columnsToUpdateType
+    val columnsToRemoveConstraint: List[ColumnSchemaSpec] = schemaChanges.get.columnsToRemoveConstraint
+    val columnsToAddConstraint: List[ColumnSchemaSpec]    = schemaChanges.get.columnsToAddConstraint
+
+    val addColumnsStatement = columnsToAdd
+      .map(c => s"""ALTER TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+                   | ADD COLUMN
+                   | ${c.toColumnStatement}
+                   | ;""".stripMargin)
+
+    val dropColumnStatements = columnsToDelete.map(_.toDropColumnStatement)
+      .map(st => s"""ALTER TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+                    | $st
+                    | ;""".stripMargin)
+
+    val updateColumnTypeStatements = columnsToUpdateType
+      .map(c => s"""ALTER TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+                   | ${c.toUpdateColumnStatementDataType}
+                   | ;""".stripMargin)
+
+    val updateColumnConstraintStatements = columnsToRemoveConstraint
+      .map(c => s"""ALTER TABLE $dbName.$schemaName.${tableName.toUpperCase}
+                   | ${c.toRemoveColumnStatementConstraint}
+                   |;""".stripMargin) ++
+      columnsToAddConstraint.map(c => s"""ALTER TABLE $dbName.$schemaName.${tableName.toUpperCase}
+                                         | ${c.toAddColumnStatementConstraint}
+                                         |;""".stripMargin)
+
+    Right(addColumnsStatement ++ dropColumnStatements ++ updateColumnTypeStatements ++ updateColumnConstraintStatements)
+  }
+
+  def checkSchemaChanges(
+      descriptor: ProvisioningRequestDescriptor,
+      component: ComponentDescriptor,
+      connection: Connection,
+      existingSchemaInformation: List[TableSpec],
+      tables: List[TableSpec],
+      dropColumnEnabled: Boolean
+  ): Either[SnowflakeError, List[SchemaChanges]] = {
+
+    val dbName     = getDatabaseName(descriptor, component.specific)
+    val schemaName = getSchemaName(descriptor, component.specific)
+
+    val results = tables.foldLeft[Either[SnowflakeError, List[SchemaChanges]]](Right(Nil)) { (acc, table) =>
+      acc match {
+        case Right(schemaChanges) => checkTableSchemaChanges(
+            dbName,
+            schemaName,
+            table.tableName.toUpperCase(),
+            connection,
+            existingSchemaInformation.find(_.tableName.equals(table.tableName.toUpperCase())),
+            table.schema,
+            dropColumnEnabled
+          ) match {
+            case Right(newSchemaChanges) => Right(schemaChanges ++ List(newSchemaChanges))
+            case Left(error)             => Left(error)
+          }
+        case Left(error)          => Left(error)
+      }
+    }
+
+    results.map(_.reverse.toSeq)
+  }
+
+  def checkTableSchemaChanges(
+      dbName: String,
+      schemaName: String,
+      tableName: String,
+      connection: Connection,
+      existingSchemaInformationOriginal: Option[TableSpec],
+      incomingShameOriginal: List[ColumnSchemaSpec],
+      dropColumnEnabled: Boolean
+  ): Either[SnowflakeError, SchemaChanges] = {
+
+    val existingSchemaInformation =
+      getTableKeysInformation(connection, dbName, schemaName, tableName, existingSchemaInformationOriginal)
+    val statementErrors           = new ListBuffer[String]()
+    val incomingShame             = incomingShameOriginal.map(col => col.copy(name = col.name.toUpperCase()))
+    val existingColumns           = existingSchemaInformation.get.schema.map(_.name).toSet
+    val newColumns                = incomingShame.map(_.name).toSet
+
+    val columnsToAdd    = incomingShame.filter(spec => !existingColumns.contains(spec.name))
+    val columnsToDelete = existingSchemaInformation.get.schema.filter(spec => !newColumns.contains(spec.name))
+
+    if (!dropColumnEnabled && !columnsToDelete.isEmpty) {
+      statementErrors += "It's not possible to drop any existing columns"
+    }
+
+    val columnsToUpdate = incomingShame
+      .filter(spec => existingColumns.contains(spec.name) && newColumns.contains(spec.name))
+
+    val existingPrimaryKeyColumns = existingSchemaInformation.get.schema
+      .filter(c => c.constraint.contains(ConstraintType.PRIMARY_KEY)).sortBy(c => c.name)
+
+    val newPrimaryKeyColumns = incomingShame.filter(c => c.constraint.contains(ConstraintType.PRIMARY_KEY))
+      .distinctBy(c => c.name).sortBy(c => c.name)
+
+    if (!existingPrimaryKeyColumns.sortBy(_.name).sameElements(newPrimaryKeyColumns.sortBy(_.name))) statementErrors +=
+      "PRIMARY KEY is changed and this operation is incompatible"
+
+    val noConstraintColumns = existingSchemaInformation.get.schema.filter(c => c.constraint.isEmpty)
+    val columnsWithIncompatibleConstraintChanges = columnsToUpdate
+      .filter(c => noConstraintColumns.exists(a => a.name.equals(c.name)) && c.constraint.isDefined)
+
+    if (columnsWithIncompatibleConstraintChanges.nonEmpty) statementErrors +=
+      "There are some columns with incompatible constraints"
+
+    val implicitConversionsMapping: Map[DataType, Set[DataType]] = Map(
+      DataType.TEXT    -> Set(DataType.TEXT),
+      DataType.NUMBER  -> Set(DataType.NUMBER),
+      DataType.DATE    -> Set(DataType.DATE),
+      DataType.BOOLEAN -> Set(DataType.BOOLEAN)
+    )
+
+    val columnsToUpdateType: List[ColumnSchemaSpec] = columnsToUpdate.filter { columnToUpdate =>
+      val existingColumnSpec = existingSchemaInformation.get.schema.find(_.name.equals(columnToUpdate.name)).get
+      val existingColumnType = existingColumnSpec.dataType
+      if (!implicitConversionsMapping(existingColumnType)(columnToUpdate.dataType)) {
+        statementErrors += s"For the column ${columnToUpdate.name}, " +
+          s"implicit conversion from $existingColumnType to ${columnToUpdate.dataType} is not allowed."
+        false
+      } else { !existingColumnType.equals(columnToUpdate.dataType) }
+    }
+
+    val columnsToRemoveConstraint: List[ColumnSchemaSpec] = existingSchemaInformation.get.schema
+      .filter { existingColumnSpec =>
+        val columnToUpdate = columnsToUpdate.find(columnToUpdate => columnToUpdate.name.equals(existingColumnSpec.name))
+        existingColumnSpec.constraint.isDefined && columnToUpdate.isDefined && columnToUpdate.get.constraint.isEmpty
+      }
+
+    val columnsToAddConstraint: List[ColumnSchemaSpec] = columnsToUpdate.filter { columnToUpdate =>
+      val existingColumnSpec = existingSchemaInformation.get.schema.find(_.name.equals(columnToUpdate.name))
+      existingColumnSpec.isDefined && existingColumnSpec.get.constraint.isEmpty && columnToUpdate.constraint.isDefined
+    }
+
+    if (!statementErrors.isEmpty) {
+      Left(SchemaChangesError(statementErrors.toList, List("Please review the table schema descriptor")))
+    } else {
+      Right(SchemaChanges(
+        columnsToAdd,
+        columnsToDelete,
+        columnsToUpdateType,
+        columnsToRemoveConstraint,
+        columnsToAddConstraint,
+        dbName,
+        schemaName,
+        tableName
+      ))
+    }
+  }
+
   def deleteTableStatement(dbName: String, schemaName: String, tableName: String) =
     s"DROP TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase};"
 
   def createTablesStatement(dbName: String, schemaName: String, tables: List[TableSpec]): Seq[String] = tables
     .map(table => createTableStatement(dbName, schemaName, table.tableName, table.schema))
+
+  def updateTablesStatement(
+      dbName: String,
+      schemaName: String,
+      tables: List[TableSpec],
+      schemaChanges: List[SchemaChanges]
+  ): Either[SnowflakeError, Seq[String]] = {
+
+    val results = tables.foldLeft[Either[SnowflakeError, List[String]]](Right(Nil)) { (acc, table) =>
+      acc match {
+        case Right(statements) => updateTableStatement(
+            dbName,
+            schemaName,
+            table.tableName.toUpperCase(),
+            schemaChanges.find(_.table.equals(table.tableName.toUpperCase))
+          ) match {
+            case Right(newStatements) => Right(statements ++ newStatements)
+            case Left(error)          => Left(error)
+          }
+        case Left(error)       => Left(error)
+      }
+    }
+
+    results.map(_.reverse.toSeq)
+  }
 
   def deleteTablesStatement(dbName: String, schemaName: String, tables: List[TableSpec]): Seq[String] = tables
     .map(table => deleteTableStatement(dbName, schemaName, table.tableName))
@@ -199,6 +478,15 @@ class QueryHelper extends LazyLogging {
 
   def deleteViewStatement(dbName: String, schemaName: String, viewName: String) =
     s"DROP VIEW IF EXISTS $dbName.$schemaName.$viewName"
+
+  def updateViewStatement(
+      dbName: String,
+      schemaName: String,
+      viewName: String,
+      tableName: String,
+      schema: List[ColumnSchemaSpec]
+  ) = s"ALTER VIEW IF EXISTS $dbName.$schemaName.$viewName AS " +
+    s"(SELECT ${schema.map(_.name).mkString(",\n")} FROM $dbName.$schemaName.$tableName);"
 
   def getDatabaseName(descriptor: ProvisioningRequestDescriptor, specific: Json): String =
     specific.hcursor.downField("database").as[String] match {

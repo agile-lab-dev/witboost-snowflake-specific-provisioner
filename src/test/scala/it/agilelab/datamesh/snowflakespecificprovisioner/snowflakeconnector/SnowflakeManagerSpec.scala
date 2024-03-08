@@ -16,7 +16,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
 
   "update acl on an output port" should "return Right if all users are granted access correctly" in {
 
-    val refs        = List("user:sergio.mejia_agilelab.it", "user:nicolo.bidotti_agilelab.it")
+    val refs        = List("user:user1_agilelab.it", "user:user2_agilelab.it")
     val mappedUsers = SnowflakePrincipalsMapper.map(refs.toSet).values.partitionMap(identity)
 
     val yaml    = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_2.yml")
@@ -35,7 +35,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
 
   "update acl on an output port" should "return Left if there is an invalid ref but only after granting access" in {
 
-    val refs         = List("user:sergio.mejia_agilelab.it", "group:bigData", "user:nicolo.bidotti_agilelab.it")
+    val refs         = List("user:user1_agilelab.it", "group:bigData", "user:user2_agilelab.it")
     val mappedGroups = SnowflakePrincipalsMapper.map(refs.toSet).values.partitionMap(identity)
 
     val yaml    = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_2.yml")
@@ -56,7 +56,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
 
   "update acl on an output port" should "return Left if there is a wrong user to grant access" in {
 
-    val refs = List("user:sergio.mejia_agilelab.it", "user:no.user_agilelab.it")
+    val refs = List("user:user1_agilelab.it", "user:no.user_agilelab.it")
 
     val yaml    = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_2.yml")
     val prDescr = ProvisioningRequestDescriptor(yaml).toOption.get

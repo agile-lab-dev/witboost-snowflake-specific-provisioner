@@ -167,7 +167,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6_no_optional.yml")
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
-      val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, CREATE_TABLES)
+      val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, CREATE_TABLES, None)
 
       res shouldBe a[Right[_, _]]
       res.foreach(script =>
@@ -194,7 +194,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6_no_optional.yml")
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
-      val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, DELETE_TABLES)
+      val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, DELETE_TABLES, None)
 
       res shouldBe a[Right[_, _]]
       res.foreach(script =>

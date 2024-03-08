@@ -1,5 +1,6 @@
 package it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector
 
+import cats.implicits.toTraverseOps
 import cats.Semigroup
 import com.typesafe.scalalogging.LazyLogging
 import it.agilelab.datamesh.snowflakespecificprovisioner.api.dto.SnowflakeOutputPortDetailsDto
@@ -24,15 +25,25 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   DELETE_VIEW,
   DESCRIBE_VIEW,
   SELECT_ON_VIEW,
+  UPDATE_TABLES,
   USAGE_ON_DB,
   USAGE_ON_SCHEMA,
   USAGE_ON_WH
 }
-import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, DataType}
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{
+  ColumnSchemaSpec,
+  ConstraintType,
+  DataType,
+  SchemaChanges,
+  TableSpec
+}
 import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.SnowflakeManagerImplicits.SeqEitherExecuteStatementOps
 import it.agilelab.datamesh.snowflakespecificprovisioner.system.RealApplicationConfiguration
+import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration._
 
-import java.sql.ResultSet
+import java.sql.{Connection, DriverManager, ResultSet}
+import java.util.Properties
+import scala.util.{Failure, Right, Success, Try}
 
 class SnowflakeManager(executor: QueryExecutor) extends LazyLogging {
 
@@ -130,15 +141,30 @@ class SnowflakeManager(executor: QueryExecutor) extends LazyLogging {
   ): Either[SnowflakeError, Option[ProvisioningStatus]] = {
     logger.info("Starting storage provisioning")
     for {
-      connection      <- executor.getConnection
-      dbStatement     <- queryBuilder.buildStorageStatement(descriptor, CREATE_DB)
-      _               <- executor.executeStatement(connection, dbStatement)
-      schemaStatement <- queryBuilder.buildStorageStatement(descriptor, CREATE_SCHEMA)
-      _               <- executor.executeStatement(connection, schemaStatement)
-      tablesStatement <- queryBuilder.buildMultipleStatement(descriptor, CREATE_TABLES)
-      _               <- tablesStatement match {
+      connection         <- executor.getConnection
+      dbStatement        <- queryBuilder.buildStorageStatement(descriptor, CREATE_DB)
+      _                  <- executor.executeStatement(connection, dbStatement)
+      schemaStatement    <- queryBuilder.buildStorageStatement(descriptor, CREATE_SCHEMA)
+      _                  <- executor.executeStatement(connection, schemaStatement)
+      exitingTableSchema <- getExistingTableSchema(connection, descriptor)
+      component          <- queryBuilder.getComponent(descriptor)
+      tables             <- queryBuilder.getTables(component)
+      schemaChanges      <-
+        if (exitingTableSchema.nonEmpty) queryBuilder
+          .checkSchemaChanges(descriptor, component, connection, exitingTableSchema, tables, true)
+        else Right(List.empty[SchemaChanges])
+      updateStatement    <-
+        if (schemaChanges.nonEmpty) queryBuilder.buildMultipleStatement(descriptor, UPDATE_TABLES, Some(schemaChanges))
+        else Right(Seq.empty[String])
+      tablesStatement    <- queryBuilder.buildMultipleStatement(descriptor, CREATE_TABLES, None)
+      _                  <- tablesStatement match {
         case statement if statement.nonEmpty => executor.traverseMultipleStatements(connection, tablesStatement)
         case _                               => Right(logger.info("Skipping table creation - no information provided"))
+      }
+      fullStatement = tablesStatement ++ updateStatement
+      _                  <- fullStatement match {
+        case statement if statement.nonEmpty => executeMultipleStatement(connection, fullStatement)
+        case _ => Left(GetComponentError("Skipping table creation - no information provided"))
       }
     } yield None
   }
@@ -147,7 +173,7 @@ class SnowflakeManager(executor: QueryExecutor) extends LazyLogging {
     logger.info("Starting storage unprovisioning")
     for {
       connection      <- executor.getConnection
-      tablesStatement <- queryBuilder.buildMultipleStatement(descriptor, DELETE_TABLES)
+      tablesStatement <- queryBuilder.buildMultipleStatement(descriptor, DELETE_TABLES, None)
       _               <- tablesStatement match {
         case statement if statement.nonEmpty => executor.traverseMultipleStatements(connection, tablesStatement)
         case _                               => Right(logger.info("Skipping table deletion - no tables to delete"))
@@ -265,6 +291,82 @@ class SnowflakeManager(executor: QueryExecutor) extends LazyLogging {
     }
   } yield res
 
+  def executeStatement(connection: Connection, statementString: String): Either[SnowflakeError, Unit] = Try {
+    logger.info("Executing SQL statement: " + statementString.replaceAll("\\n", ""))
+    val statement = connection.createStatement()
+    statement.executeUpdate(statementString)
+    statement.close()
+  } match {
+    case Failure(exception) => Left(ExecuteStatementError(Some(statementString), List(exception.getMessage)))
+    case Success(_)         => Right(())
+  }
+
+  def getExistingTableSchema(
+      connection: Connection,
+      descriptor: ProvisioningRequestDescriptor
+  ): Either[SnowflakeError, List[TableSpec]] = {
+
+    def readResultSetRecursively(resultSet: ResultSet, acc: List[TableSpec]): List[TableSpec] =
+      if (!resultSet.next()) acc
+      else {
+        val tableName      = resultSet.getString("TABLE_NAME")
+        val columnName     = resultSet.getString("COLUMN_NAME")
+        val dataType       = DataType.snowflakeTypeToDataType(resultSet.getString("DATA_TYPE"))
+        val isNullable     = if (resultSet.getString("IS_NULLABLE").equals("NO")) false else true
+        val constraintType = resultSet.getString("CONSTRAINT_TYPE")
+        val constraint     = constraintType match {
+          case "PRIMARY KEY"    => Some(ConstraintType.PRIMARY_KEY)
+          case _ if !isNullable => Some(ConstraintType.NOT_NULL)
+          case _                => None
+        }
+
+        val existing = acc.find(a => a.tableName.equals(tableName))
+        if (existing.isEmpty) readResultSetRecursively(
+          resultSet,
+          acc :+ TableSpec(tableName, List(ColumnSchemaSpec(columnName, dataType, constraint)))
+        )
+        else {
+          val newSpec     = existing.get.schema ++ List(ColumnSchemaSpec(columnName, dataType, constraint))
+          val clearedList = acc.filterNot(a => a.tableName.equals(tableName))
+          readResultSetRecursively(resultSet, clearedList :+ TableSpec(tableName, newSpec))
+        }
+
+      }
+
+    def readResultSet(resultSet: ResultSet): List[TableSpec] = readResultSetRecursively(resultSet, List.empty)
+    val getSchemaInformationQuery                            = queryBuilder.createTableSchemaInformationQuery()
+    for {
+      component <- queryBuilder.getComponent(descriptor)
+      database = queryBuilder.getDatabaseName(descriptor, component.specific)
+      schema   = queryBuilder.getSchemaName(descriptor, component.specific)
+      tables <- queryBuilder.getTables(component)
+      tableNamesForSql = tables.map(table => s"'${table.tableName.toUpperCase}'").mkString(", ")
+      schemaInformationResult <- Try {
+
+        val alterPrepared          = connection.prepareStatement("ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'")
+        val alterStatement         = alterPrepared.executeQuery()
+        val querySchemaInformation = getSchemaInformationQuery.replace("{CATALOG}", database)
+          .replace("{TABLES}", tableNamesForSql)
+        val schemaInformationStatement = connection.prepareStatement(querySchemaInformation)
+        schemaInformationStatement.setString(1, schema)
+        schemaInformationStatement.setString(2, database)
+
+        try {
+          val schemaInformationResultSet = schemaInformationStatement.executeQuery()
+          try Right(readResultSet(schemaInformationResultSet))
+          finally {
+            schemaInformationResultSet.close()
+            alterStatement.close()
+          }
+        } finally schemaInformationStatement.close()
+      } match {
+        case Success(list)      => list
+        case Failure(exception) =>
+          Left(ExecuteStatementError(Some(getSchemaInformationQuery), List(exception.getMessage)))
+      }
+    } yield schemaInformationResult
+  }
+
   def validateSchema(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = for {
     _                 <- validateDescriptor(descriptor)
     connection        <- executor.getConnection
@@ -311,6 +413,28 @@ class SnowflakeManager(executor: QueryExecutor) extends LazyLogging {
       schemaFromDescriptor.forall(y => mappedResults.contains((y.name.toUpperCase(), y.dataType)))
     } else { false }
   }
+
+  def executeMultipleStatement(connection: Connection, statements: Seq[String]): Either[SnowflakeError, Seq[Unit]] =
+    statements.traverse(statement => executeStatement(connection, statement))
+
+  def getConnection: Either[SnowflakeError, Connection] = Try {
+    logger.info("Getting connection to Snowflake account...")
+    val properties = new Properties()
+    properties.put("user", user)
+    properties.put("password", password)
+    properties.put("role", role)
+    properties.put("account", account)
+    properties.put("warehouse", warehouse)
+    DriverManager.setLoginTimeout(snowflakeConnectionTimeout.getSeconds.intValue)
+    DriverManager.getConnection(jdbcUrl, properties)
+  } match {
+    case Failure(exception)  => Left(GetConnectionError(
+        List(exception.getMessage),
+        List("Please check that the connection configuration variables are set correctly")
+      ))
+    case Success(connection) => Right(connection)
+  }
+
 }
 
 object SnowflakeManagerImplicits {

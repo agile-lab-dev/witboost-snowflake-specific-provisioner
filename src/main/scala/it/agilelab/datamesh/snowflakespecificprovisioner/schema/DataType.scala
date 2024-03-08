@@ -17,6 +17,7 @@ object DataType extends Enumeration {
     case s if s.startsWith("NUMBER")  => DataType.NUMBER
     case s if s.startsWith("DATE")    => DataType.DATE
     case s if s.startsWith("BOOLEAN") => DataType.BOOLEAN
+    case s if s.startsWith("TEXT")    => DataType.TEXT
   }
 
   val TEXT: schema.DataType.Value    = Value("TEXT")

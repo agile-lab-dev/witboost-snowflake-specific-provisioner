@@ -45,6 +45,13 @@ final case class ExecuteStatementError(
   override def input: Option[String]  = sqlStatement
 }
 
+final case class SchemaChangesError(
+    override val problems: List[String] = List.empty,
+    override val solutions: List[String] = List.empty
+) extends SnowflakeSystemError {
+  override def userMessage: String = s"Error while validating table schema changes"
+}
+
 object ExecuteStatementError {
 
   implicit def executeStatementErrorSemigroup: Semigroup[ExecuteStatementError] =
@@ -70,6 +77,12 @@ final case class UnsupportedOperationError(
     override val solutions: List[String] = List.empty
 ) extends SnowflakeSystemError {
   override def userMessage: String = s"Unsupported operation: $unsupportedOp"
+}
+
+final case class GetNoInformationError(override val problems: List[String] = List.empty) extends SnowflakeSystemError {
+  override def userMessage: String = s"Skipping table creation - no information provided"
+
+  override val solutions: List[String] = List("Make sure that the table information exists in the descriptor")
 }
 
 trait SnowflakeValidationError extends SnowflakeError

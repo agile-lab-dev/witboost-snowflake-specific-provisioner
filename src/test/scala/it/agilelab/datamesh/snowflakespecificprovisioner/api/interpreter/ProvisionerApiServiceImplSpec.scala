@@ -137,7 +137,7 @@ class ProvisionerApiServiceImplSpec
 
   it should "synchronously updateacl when a valid request is passed as input" in {
     val yaml    = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1.yml")
-    val refs    = List("user:sergio.mejia_agilelab.it")
+    val refs    = List("user:user_agilelab.it")
     val request = UpdateAclRequest(refs, ProvisionInfo(yaml, "res"))
 
     val _ = (snowflakeManager.executeUpdateAcl _).expects(*, *).returns(Right(refs))
