@@ -12,7 +12,7 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.model.{
   ProvisioningStatus,
   ProvisioningStatusEnums
 }
-import it.agilelab.datamesh.snowflakespecificprovisioner.principalsmapper.SnowflakePrincipalsMapper
+import it.agilelab.datamesh.snowflakespecificprovisioner.principalsmapper.PrincipalsMapper
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   ASSIGN_ROLE,
   CREATE_DB,
@@ -45,7 +45,7 @@ import java.sql.{Connection, DriverManager, ResultSet}
 import java.util.Properties
 import scala.util.{Failure, Right, Success, Try}
 
-class SnowflakeManager(executor: QueryExecutor) extends LazyLogging {
+class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapper[String]) extends LazyLogging {
 
   val queryBuilder        = new QueryHelper
   val provisionInfoHelper = new ProvisionInfoHelper(RealApplicationConfiguration)
@@ -55,14 +55,14 @@ class SnowflakeManager(executor: QueryExecutor) extends LazyLogging {
   ): Either[SnowflakeError, Option[ProvisioningStatus]] = {
     logger.info("Starting output port provisioning")
     for {
-      connection      <- executor.getConnection
-      dbStatement     <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_DB)
-      _               <- executor.executeStatement(connection, dbStatement)
-      schemaStatement <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_SCHEMA)
-      _               <- executor.executeStatement(connection, schemaStatement)
-      viewStatement   <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_VIEW)
-      _               <- executor.executeStatement(connection, viewStatement)
-      _ = executeUpdateAcl(descriptor, Seq(descriptor.dataProduct.dataProductOwner))
+      connection             <- executor.getConnection
+      dbStatement            <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_DB)
+      _                      <- executor.executeStatement(connection, dbStatement)
+      schemaStatement        <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_SCHEMA)
+      _                      <- executor.executeStatement(connection, schemaStatement)
+      viewStatement          <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_VIEW)
+      _                      <- executor.executeStatement(connection, viewStatement)
+      _                      <- executeUpdateAcl(descriptor, Seq(descriptor.dataProduct.dataProductOwner))
       _                      <- validateSchema(descriptor).left.map { err =>
         unprovisionOutputPort(descriptor)
         err
@@ -105,14 +105,15 @@ class SnowflakeManager(executor: QueryExecutor) extends LazyLogging {
       connection           <- executor.getConnection
       mappedRefs           <- {
         logger.info("Mapping refs to Snowflake users: {}", refs)
-        val refMapping = SnowflakePrincipalsMapper.map(refs.toSet).values.partitionMap(identity)
+        val refMapping = principalsMapper.map(refs.toSet).values.partitionMap(identity)
         refMapping._1.foreach { err =>
           logger.warn("Error while mapping ref \"{}\": {}", err.input.getOrElse(""), err.getMessage)
         }
         Right(refMapping)
       }
-      assignRoleStatements <- queryBuilder.buildRefsStatement(descriptor, mappedRefs._2.toList, ASSIGN_ROLE)
-      grantedRefs <- executor.executeMultipleStatements(connection, assignRoleStatements).zip(mappedRefs._2).map {
+      // we could have the same mapping for different witboost identities, .toSet.toList removes eventual duplicates
+      assignRoleStatements <- queryBuilder.buildRefsStatement(descriptor, mappedRefs._2.toSet.toList, ASSIGN_ROLE)
+      grantedRefs <- executor.executeMultipleStatements(connection, assignRoleStatements).zip(mappedRefs._2.toSet).map {
         case (Left(err), _)  => Left(err)
         case (Right(_), ref) => Right(ref)
       }.mergeSequence()

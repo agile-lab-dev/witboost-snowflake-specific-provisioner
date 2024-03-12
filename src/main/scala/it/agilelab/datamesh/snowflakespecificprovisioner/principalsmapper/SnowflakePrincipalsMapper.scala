@@ -2,7 +2,7 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.principalsmapper
 
 import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.PrincipalMappingError
 
-object SnowflakePrincipalsMapper extends PrincipalsMapper[String] {
+class SnowflakePrincipalsMapper extends PrincipalsMapper[String] {
 
   /** This method defines the main mapping logic
    *

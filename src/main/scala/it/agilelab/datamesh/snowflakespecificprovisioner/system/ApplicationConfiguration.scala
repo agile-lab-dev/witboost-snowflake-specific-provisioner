@@ -28,4 +28,11 @@ object ApplicationConfiguration {
   def jdbcUrl: String                      = config.get.getString("snowflake.jdbc-url")
   def accountLocatorUrl: String            = config.get.getString("snowflake.account-locator-url")
   def snowflakeConnectionTimeout: Duration = config.get.getDuration("snowflake.connection-timeout")
+  def principalsMapperStrategy: String     = config.get.getString("snowflake.principals-mapper.strategy")
+
+  def principalsMapperTableBasedDatabase: String = config.get
+    .getString("snowflake.principals-mapper.table-based.database")
+
+  def principalsMapperTableBasedSchema: String = config.get.getString("snowflake.principals-mapper.table-based.schema")
+  def principalsMapperTableBasedTable: String  = config.get.getString("snowflake.principals-mapper.table-based.table")
 }

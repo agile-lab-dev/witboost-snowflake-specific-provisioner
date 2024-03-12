@@ -12,12 +12,13 @@ import java.sql.Connection
 class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matchers {
 
   val executorMock     = mock[QueryExecutor]
-  val snowflakeManager = new SnowflakeManager(executorMock)
+  val principalsMapper = new SnowflakePrincipalsMapper
+  val snowflakeManager = new SnowflakeManager(executorMock, principalsMapper)
 
   "update acl on an output port" should "return Right if all users are granted access correctly" in {
 
     val refs        = List("user:user1_agilelab.it", "user:user2_agilelab.it")
-    val mappedUsers = SnowflakePrincipalsMapper.map(refs.toSet).values.partitionMap(identity)
+    val mappedUsers = principalsMapper.map(refs.toSet).values.partitionMap(identity)
 
     val yaml    = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_2.yml")
     val prDescr = ProvisioningRequestDescriptor(yaml).toOption.get
@@ -36,7 +37,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
   "update acl on an output port" should "return Left if there is an invalid ref but only after granting access" in {
 
     val refs         = List("user:user1_agilelab.it", "group:bigData", "user:user2_agilelab.it")
-    val mappedGroups = SnowflakePrincipalsMapper.map(refs.toSet).values.partitionMap(identity)
+    val mappedGroups = principalsMapper.map(refs.toSet).values.partitionMap(identity)
 
     val yaml    = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_2.yml")
     val prDescr = ProvisioningRequestDescriptor(yaml).toOption.get
@@ -101,7 +102,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
     val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_6.yml")
     val prd  = ProvisioningRequestDescriptor(yaml).toOption.get
 
-    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor, principalsMapper)
     val res              = snowflakeManager.validateDescriptor(prd)
 
     res.isRight shouldBe true
@@ -113,7 +114,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
     val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_7_custom_view_wrong.yml")
     val prd  = ProvisioningRequestDescriptor(yaml).toOption.get
 
-    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor, principalsMapper)
     val res              = snowflakeManager.validateDescriptor(prd)
 
     res.isRight shouldBe false
@@ -126,7 +127,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
     val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_5.yml")
     val prd  = ProvisioningRequestDescriptor(yaml).toOption.get
 
-    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor, principalsMapper)
     val res              = snowflakeManager.validateDescriptor(prd)
 
     res.isRight shouldBe true
@@ -137,7 +138,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
 
     val yaml             = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_8_view_wrong.yml")
     val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
-    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor, principalsMapper)
     val res              = snowflakeManager.validateDescriptor(prd)
 
     res.isLeft shouldBe true
@@ -149,7 +150,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
 
     val yaml             = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_5_custom_view.yml")
     val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
-    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor, principalsMapper)
     val res              = snowflakeManager.validateDescriptor(prd)
 
     res.isRight shouldBe true
@@ -160,7 +161,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
 
     val yaml             = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_9_no_data_contract.yml")
     val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
-    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor, principalsMapper)
 
     val res1 = snowflakeManager.validateDescriptor(prd)
     res1.isRight shouldBe true
@@ -177,7 +178,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
 
     val yaml             = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_7_no_tables.yml")
     val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
-    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor, principalsMapper)
 
     val res1 = snowflakeManager.validateDescriptor(prd)
     res1.isRight shouldBe true
@@ -194,7 +195,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
 
     val yaml             = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_8_wrong_kind.yml")
     val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
-    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor)
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor, principalsMapper)
 
     val res1 = snowflakeManager.validateDescriptor(prd)
     res1.isRight shouldBe true

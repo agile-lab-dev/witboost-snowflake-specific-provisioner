@@ -102,16 +102,39 @@ Most application configurations are handled with the Typesafe Config library. Yo
 
 Snowflake connection information can be passed in via environment variables or configuration file; the mapping done by default resides in the `reference.conf` and is the following:
 
-| Setting   | Environment Variable |
-|-----------|----------------------|
-| user      | SNOWFLAKE_USER       |
-| password  | SNOWFLAKE_PASSWORD   |
-| role      | SNOWFLAKE_ROLE       |
-| account   | SNOWFLAKE_ACCOUNT    |
-| warehouse | SNOWFLAKE_WAREHOUSE  |
-| jdbc-url  | JDBC_URL             |
+| Setting                       | Environment Variable          |
+|-------------------------------|-------------------------------|
+| snowflake.user                | SNOWFLAKE_USER                |
+| snowflake.password            | SNOWFLAKE_PASSWORD            |
+| snowflake.role                | SNOWFLAKE_ROLE                |
+| snowflake.account             | SNOWFLAKE_ACCOUNT             |
+| snowflake.warehouse           | SNOWFLAKE_WAREHOUSE           |
+| snowflake.jdbc-url            | JDBC_URL                      |
+| snowflake.account-locator-url | SNOWFLAKE_ACCOUNT_LOCATOR_URL |
 
 Logging is handled with Logback, you can find an example `logback.xml` in the Helm chart. Customize it and pass it using the `logback.configurationFile` system property.
+
+### Principals Mapper
+
+The default configuration uses an `identity` mapping strategy.
+
+| Setting                              | Environment Variable                 | Default value | Allowed values       |
+|--------------------------------------|--------------------------------------|---------------|----------------------|
+| snowflake.principals-mapper.strategy | SNOWFLAKE_PRINCIPALS_MAPPER_STRATEGY | identity      | identity,table-based |
+
+It is possible to use a `table-based` mapping if, for example, Snowflake is not configured to use SSO. In this case the mapping table is used and is expected to be already present and filled with all the required mapping entries.
+
+The following options allow you to customize the database, schema and name of the mapping table:
+
+| Setting                                          | Environment Variable                             | Default value      |
+|--------------------------------------------------|--------------------------------------------------|--------------------|
+| snowflake.principals-mapper.table-based.database | SNOWFLAKE_PRINCIPALS_MAPPER_TABLE_BASED_DATABASE | WITBOOST           |
+| snowflake.principals-mapper.table-based.schema   | SNOWFLAKE_PRINCIPALS_MAPPER_TABLE_BASED_SCHEMA   | CONFIGURATIONS     |
+| snowflake.principals-mapper.table-based.table    | SNOWFLAKE_PRINCIPALS_MAPPER_TABLE_BASED_TABLE    | PRINCIPALS_MAPPING |
+
+You can find a sample SQL script to create required objects [here](docs/create_mapping_table.sql). Update it before executing, if you decide to use different default values for database, schema or table name.
+
+The role used  by the provisioner must have SELECT privileges on this table.
 
 ## Deploying
 

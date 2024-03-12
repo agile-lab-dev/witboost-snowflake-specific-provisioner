@@ -86,6 +86,31 @@ spec:
                 secretKeyRef:
                   name: witboost-addons-secrets
                   key: JDBC_URL
+            - name: SNOWFLAKE_ACCOUNT_LOCATOR_URL
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-addons-secrets
+                  key: SNOWFLAKE_ACCOUNT_LOCATOR_URL
+            - name: SNOWFLAKE_PRINCIPALS_MAPPER_STRATEGY
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-addons-secrets
+                  key: SNOWFLAKE_PRINCIPALS_MAPPER_STRATEGY
+            - name: SNOWFLAKE_PRINCIPALS_MAPPER_TABLE_BASED_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-addons-secrets
+                  key: SNOWFLAKE_PRINCIPALS_MAPPER_TABLE_BASED_DATABASE
+            - name: SNOWFLAKE_PRINCIPALS_MAPPER_TABLE_BASED_SCHEMA
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-addons-secrets
+                  key: SNOWFLAKE_PRINCIPALS_MAPPER_TABLE_BASED_SCHEMA
+            - name: SNOWFLAKE_PRINCIPALS_MAPPER_TABLE_BASED_TABLE
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-addons-secrets
+                  key: SNOWFLAKE_PRINCIPALS_MAPPER_TABLE_BASED_TABLE
           volumeMounts:
             - name: config
               mountPath: /opt/docker/etc/configs
