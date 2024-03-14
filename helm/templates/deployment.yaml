@@ -5,6 +5,10 @@ metadata:
     app: {{ template "snowflake-specific-provisioner.name" . }}
 {{- include "snowflake-specific-provisioner.labels" . | nindent 4 }}
   name: {{ template "snowflake-specific-provisioner.fullname" . }}
+  annotations:
+    {{- if .Values.annotations }}
+    {{- toYaml .Values.annotations | nindent 4 }}
+    {{- end }}
 spec:
   replicas: 1
   selector:

@@ -8,6 +8,7 @@ A Helm chart for Kubernetes
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| annotations."reloader.stakater.com/auto" | string | `"true"` |  |
 | configOverride | string | `nil` | This configuration allows you to override the application.conf file |
 | dockerRegistrySecretName | string | `"regcred"` | Docker Registry Secret name used to access a private repo |
 | image.pullPolicy | string | `"Always"` | The imagePullPolicy for a container and the tag of the image affect when the kubelet attempts to pull (download) the specified image. |

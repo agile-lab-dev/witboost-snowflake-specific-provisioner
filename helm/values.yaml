@@ -10,6 +10,9 @@ image:
   # -- The imagePullPolicy for a container and the tag of the image affect when the kubelet attempts to pull (download) the specified image.
   pullPolicy: Always
 
+annotations:
+  reloader.stakater.com/auto: "true"
+
 # -- Docker Registry Secret name used to access a private repo
 dockerRegistrySecretName: regcred
 
