@@ -3,6 +3,7 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.test.getTestResourceAsString
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
 import it.agilelab.datamesh.snowflakespecificprovisioner.principalsmapper.SnowflakePrincipalsMapper
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{CREATE_TABLES, DELETE_TABLES}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
@@ -205,6 +206,31 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
     res2.isLeft shouldBe true
     res2.left
       .foreach(value => value.problems.head should (include("The specified kind").and(include("is not supported"))))
+  }
+
+  it should "successfully retrieve information schema of the tables from Snowflake" in {
+
+    val yaml             = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_9_with_tags.yml")
+    val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
+    val queryBuilder     = new QueryHelper
+    val executor         = new SnowflakeExecutor
+    val snowflakeManager = new SnowflakeManager(executor, principalsMapper)
+
+    val res = for {
+      connection         <- executor.getConnection
+      deleteStatement    <- queryBuilder.buildMultipleStatement(prd, DELETE_TABLES, None, None)
+      _                  <- deleteStatement match {
+        case statement if statement.nonEmpty => executor.traverseMultipleStatements(connection, deleteStatement)
+        case _ => Right(GetComponentError("Skipping delete tables - no information provided"))
+      }
+      createStatement    <- queryBuilder.buildMultipleStatement(prd, CREATE_TABLES, None, None)
+      _                  <- createStatement match {
+        case statement if statement.nonEmpty => executor.traverseMultipleStatements(connection, createStatement)
+        case _ => Right(GetComponentError("Skipping create tables - no information provided"))
+      }
+      exitingTableSchema <- snowflakeManager.getExistingTableSchema(connection, prd)
+    } yield exitingTableSchema
+    res match { case _ => res.isRight shouldBe true }
   }
 
 }

@@ -112,7 +112,77 @@ Snowflake connection information can be passed in via environment variables or c
 | snowflake.jdbc-url            | JDBC_URL                      |
 | snowflake.account-locator-url | SNOWFLAKE_ACCOUNT_LOCATOR_URL |
 
+To clarify, below a detailed explain of how configure your variables. By accessing your Snowflake environment, in the lower left part of the page, you can retrieve these information:
+
+<p align="center">
+    <a href="https://www.agilelab.it/witboost">
+        <img src="docs/img/snowflake_parameters.png" alt="parameters" width=600 >
+    </a>
+</p>
+
+Based on this, you are able to configure your variables simply following the placeholders in the previous image. The only exception is for these two:
+
+- **JDBC_URL**: is a string composed in this way *jdbc:snowflake://**[ORGANIZATION]-[ACCOUNT NAME]**.snowflakecomputing.com*. Following the placeholders you can easily create your jdbc string
+- **SNOWFLAKE_ACCOUNT_LOCATOR_URL**: you can retrieve this from the specific button, highlithed in green in the image
+
 Logging is handled with Logback, you can find an example `logback.xml` in the Helm chart. Customize it and pass it using the `logback.configurationFile` system property.
+
+### Account Setup
+
+It's possible to run this microservice with a different role than the administrator user.
+
+> **NOTE:** For the tag support feature, if you want to use a **custom role** pay attention on the next dedicated paragraph, because others settings are needed.
+
+In other words, to use a custom role it's important to have a Snowflake user with these types of permissions:
+
+- create role on the account
+- manage grants on the account
+- create a database on the account
+- usage on the warehouse
+
+You can easily set up your own dedicated Snowflake user by following a few specific instructions.
+
+For example, you could create a custome role **'WITBOOST'** through which add needed priviliges to an existing account or to a new one. Below the commands that must be executed:
+
+```sql
+CREATE ROLE WITBOOST; 
+GRANT CREATE ROLE ON ACCOUNT TO ROLE WITBOOST;
+GRANT MANAGE GRANTS ON ACCOUNT TO ROLE WITBOOST;
+GRANT CREATE DATABASE ON ACCOUNT TO ROLE WITBOOST;
+GRANT USAGE ON WAREHOUSE <YOUR_WAREHOUSE> TO ROLE WITBOOST;
+GRANT ROLE WITBOOST TO USER WITBOOST;
+```
+
+In this way, you will create a Snowflake role **'WITBOOST'** and you will associate it to an existing user **'WITBOOST'**. After this setup, you will be able to use this user and role to perform actions by the provisioner.
+
+#### Tag feature setup
+
+The Snowflake provisioner is also able to create and remove tags from columns and components.
+
+Assuming this feature access on the *SNOWFLAKE.ACCOUNT_USAGE* schema, it's possible to use a custom role, but some previous actions are needed.
+
+These actions are **mandatory** if you use a **custom role**, because it cannot directly access on that schema.
+
+These the steps that must be executed:
+
+```sql
+CREATE DATABASE IF NOT EXISTS WITBOOST;
+CREATE SCHEMA IF NOT EXISTS WITBOOST.CONFIGURATIONS; 
+CREATE VIEW IF NOT EXISTS WITBOOST.CONFIGURATIONS.TAG_REFERENCES AS SELECT * FROM SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES; 
+GRANT USAGE ON DATABASE WITBOOST TO ROLE WITBOOST; 
+GRANT USAGE ON SCHEMA WITBOOST.CONFIGURATIONS TO ROLE WITBOOST; 
+GRANT SELECT ON VIEW WITBOOST.CONFIGURATIONS.TAG_REFERENCES TO ROLE WITBOOST;
+```
+
+In case you want to use a different database, schema or view, you are free to modify the previous commands with others value. Remember only to configure also these settings:
+
+
+| Setting                           | Environment Variable              | Default value  |
+|-----------------------------------|-----------------------------------|----------------|
+| snowflake.tag-references.database | SNOWFLAKE_TAG_REFERENCES_DATABASE | WITBOOST       |
+| snowflake.tag-references.schema   | SNOWFLAKE_TAG_REFERENCES_SCHEMA   | CONFIGURATIONS |
+| snowflake.tag-references.view     | SNOWFLAKE_TAG_REFERENCES_VIEW     | TAG_REFERENCES |
+
 
 ### Principals Mapper
 

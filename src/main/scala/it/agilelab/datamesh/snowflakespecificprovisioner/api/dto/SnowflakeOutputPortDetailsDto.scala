@@ -20,17 +20,13 @@ object OutputPortDetailsType extends Enumeration {
     .contramap(_.toString)
 }
 
-case class SnowflakeOutputPortDetailsStringType(opDetailsType: OutputPortDetailsType, label: String, value: String)
+case class SnowflakeOutputPortDetailsStringType(`type`: OutputPortDetailsType, label: String, value: String)
     extends SnowflakeOutputPortDetails
 
-case class SnowflakeOutputPortDetailsLinkType(
-    opDetailsType: OutputPortDetailsType,
-    label: String,
-    value: String,
-    href: String
-) extends SnowflakeOutputPortDetails
+case class SnowflakeOutputPortDetailsLinkType(`type`: OutputPortDetailsType, label: String, value: String, href: String)
+    extends SnowflakeOutputPortDetails
 
-case class SnowflakeOutputPortDetailsDateType(opDetailsType: OutputPortDetailsType, label: String, value: String)
+case class SnowflakeOutputPortDetailsDateType(`type`: OutputPortDetailsType, label: String, value: String)
     extends SnowflakeOutputPortDetails
 
 object SnowflakeOutputPortDetailsDto {

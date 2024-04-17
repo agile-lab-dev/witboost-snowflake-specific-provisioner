@@ -6,11 +6,18 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   CREATE_DB,
   CREATE_SCHEMA,
   CREATE_TABLES,
+  CREATE_TAGS,
   CREATE_VIEW,
   DELETE_SCHEMA,
-  DELETE_TABLES
+  DELETE_TABLES,
+  UPDATE_TABLES
 }
-import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, ConstraintType, DataType}
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{
+  ColumnSchemaSpec,
+  ConstraintType,
+  DataType,
+  SchemaChanges
+}
 import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.QueryHelper
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -167,7 +174,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6_no_optional.yml")
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
-      val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, CREATE_TABLES, None)
+      val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, CREATE_TABLES, None, None)
 
       res shouldBe a[Right[_, _]]
       res.foreach(script =>
@@ -194,13 +201,108 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6_no_optional.yml")
       val descriptor = ProvisioningRequestDescriptor(yaml)
 
-      val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, DELETE_TABLES, None)
+      val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, DELETE_TABLES, None, None)
 
       res shouldBe a[Right[_, _]]
       res.foreach(script =>
         script should be(List(
           "DROP TABLE IF EXISTS MARKETING.DPOWNERTEST_1.TABLE1;",
           "DROP TABLE IF EXISTS MARKETING.DPOWNERTEST_1.TABLE2;"
+        ))
+      )
+    }
+
+  "buildStorageStatement method" should "correctly build the alter tables statement when a column is added" in {
+    val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6.yml")
+    val descriptor = ProvisioningRequestDescriptor(yaml)
+
+    val columnsToAdd = List(ColumnSchemaSpec("NEW_COLUMN", DataType.TEXT, Option(ConstraintType.NOT_NULL), None))
+
+    val schemaChanges = List(
+      SchemaChanges(columnsToAdd, List.empty, List.empty, List.empty, List.empty, "TEST_AIRBYTE", "PUBLIC", "TABLE1")
+    )
+    val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, UPDATE_TABLES, Some(schemaChanges), None)
+
+    res shouldBe a[Right[_, _]]
+    res.foreach(script =>
+      script should
+        be(List("ALTER TABLE IF EXISTS TEST_AIRBYTE.PUBLIC.TABLE1\n ADD COLUMN\n NEW_COLUMN TEXT NOT NULL\n ;"))
+    )
+  }
+
+  "buildStorageStatement method" should "correctly build the alter tables statement when a column is removed" in {
+    val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6.yml")
+    val descriptor = ProvisioningRequestDescriptor(yaml)
+
+    val columnsToDelete = List(ColumnSchemaSpec("DATE", DataType.TEXT, Option(ConstraintType.NOT_NULL), None))
+
+    val schemaChanges = List(
+      SchemaChanges(List.empty, columnsToDelete, List.empty, List.empty, List.empty, "TEST_AIRBYTE", "PUBLIC", "TABLE1")
+    )
+    val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, UPDATE_TABLES, Some(schemaChanges), None)
+
+    res shouldBe a[Right[_, _]]
+    res.foreach(script =>
+      script should be(List("ALTER TABLE IF EXISTS TEST_AIRBYTE.PUBLIC.TABLE1\n DROP COLUMN DATE\n ;"))
+    )
+  }
+
+  "buildStorageStatement method" should "correctly build the alter tables statement when a constraint changed" in {
+    val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_6.yml")
+    val descriptor = ProvisioningRequestDescriptor(yaml)
+
+    val columnsToAddConstraint = List(ColumnSchemaSpec("PHONE", DataType.NUMBER, Option(ConstraintType.NOT_NULL), None))
+
+    val schemaChanges = List(SchemaChanges(
+      List.empty,
+      List.empty,
+      List.empty,
+      List.empty,
+      columnsToAddConstraint,
+      "TEST_AIRBYTE",
+      "PUBLIC",
+      "TABLE1"
+    ))
+    val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, UPDATE_TABLES, Some(schemaChanges), None)
+
+    res shouldBe a[Right[_, _]]
+    res.foreach(script =>
+      script should be(List("ALTER TABLE IF EXISTS TEST_AIRBYTE.PUBLIC.TABLE1\n ALTER COLUMN PHONE SET NOT NULL\n;"))
+    )
+  }
+
+  "buildStorageStatement method" should
+    "correctly build the alter tables statement when a tag is added on a column and on a storage table" in {
+      val yaml       = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_9_with_tags.yml")
+      val descriptor = ProvisioningRequestDescriptor(yaml)
+
+      val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, CREATE_TAGS, None, None)
+
+      res shouldBe a[Right[_, _]]
+      res.foreach(script =>
+        script should be(List(
+          "CREATE TAG IF NOT EXISTS\n TESTDB.PUBLIC.\"tag tabella\"\n ;",
+          "CREATE TAG IF NOT EXISTS\n TESTDB.PUBLIC.\"tag di prova\"\n ;",
+          "ALTER TABLE IF EXISTS TESTDB.PUBLIC.TABLE1\n SET TAG TESTDB.PUBLIC.\"tag tabella\" = 'valore di prova'\n;",
+          "ALTER TABLE IF EXISTS TESTDB.PUBLIC.TABLE1\n ALTER COLUMN id SET TAG\n TESTDB.PUBLIC.\"tag di prova\" = 'valore di prova'\n;"
+        ))
+      )
+    }
+
+  "buildStorageStatement method" should
+    "correctly build the alter tables statement when a tag is added on a column and on an output port" in {
+      val yaml       = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_10_with_tags.yml")
+      val descriptor = ProvisioningRequestDescriptor(yaml)
+
+      val res = queryHelper.buildOutputPortTagStatement(descriptor.toOption.get, List.empty, CREATE_TAGS)
+
+      res shouldBe a[Right[_, _]]
+      res.foreach(script =>
+        script should be(List(
+          "ALTER VIEW IF EXISTS TEST_AIRBYTE.PUBLIC.SNOWFLAKE_VIEW\n ALTER COLUMN phone SET TAG\n TEST_AIRBYTE.PUBLIC.\"tag di prova\" = 'valore di prova'\n;",
+          "ALTER VIEW IF EXISTS TEST_AIRBYTE.PUBLIC.SNOWFLAKE_VIEW\n SET TAG TEST_AIRBYTE.PUBLIC.\"tag view\" = 'valore di prova'\n;",
+          "CREATE TAG IF NOT EXISTS\n TEST_AIRBYTE.PUBLIC.\"tag di prova\"\n ;",
+          "CREATE TAG IF NOT EXISTS\n TEST_AIRBYTE.PUBLIC.\"tag view\"\n ;"
         ))
       )
     }

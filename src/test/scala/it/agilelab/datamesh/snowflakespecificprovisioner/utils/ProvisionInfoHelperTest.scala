@@ -7,7 +7,10 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfi
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import it.agilelab.datamesh.snowflakespecificprovisioner.api.dto.SnowflakeOutputPortDetailsStringType
+import it.agilelab.datamesh.snowflakespecificprovisioner.api.dto.{
+  SnowflakeOutputPortDetailsLinkType,
+  SnowflakeOutputPortDetailsStringType
+}
 
 class ProvisionInfoHelperTest extends AnyFlatSpec with Matchers with MockFactory {
   val mockConfig: ApplicationConfigurationWrapper = mock[ApplicationConfigurationWrapper]
@@ -33,12 +36,15 @@ class ProvisionInfoHelperTest extends AnyFlatSpec with Matchers with MockFactory
           case Some(details: SnowflakeOutputPortDetailsStringType) =>
             details.value shouldEqual expectedValue
             ()
+          case Some(details: SnowflakeOutputPortDetailsLinkType)   =>
+            details.href shouldEqual expectedValue
+            ()
           case Some(_) => fail(s"Incorrect type for '$key' in outputPortDetailItems")
           case None    => fail(s"Key '$key' not found in outputPortDetailItems")
         }
         checkDetail("aString1", "test")
         checkDetail("aString2", "test")
-        checkDetail("aLink3", "jdbc:snowflake://myaccount.snowflakecomputing.com/?warehouse=mywh&db=mydb")
+        checkDetail("aString3", "jdbc:snowflake://myaccount.snowflakecomputing.com/?warehouse=mywh&db=mydb")
         checkDetail("aString4", "output_port_view")
         checkDetail("aLink5", "https://test.region.snowflakecomputing.com")
       case Left(_)      => fail("Should not be left")

@@ -19,6 +19,7 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   CREATE_ROLE,
   CREATE_SCHEMA,
   CREATE_TABLES,
+  CREATE_TAGS,
   CREATE_VIEW,
   DELETE_ROLE,
   DELETE_TABLES,
@@ -43,6 +44,7 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfi
 
 import java.sql.{Connection, DriverManager, ResultSet}
 import java.util.Properties
+import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Right, Success, Try}
 
 class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapper[String]) extends LazyLogging {
@@ -55,13 +57,28 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
   ): Either[SnowflakeError, Option[ProvisioningStatus]] = {
     logger.info("Starting output port provisioning")
     for {
-      connection             <- executor.getConnection
-      dbStatement            <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_DB)
-      _                      <- executor.executeStatement(connection, dbStatement)
-      schemaStatement        <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_SCHEMA)
-      _                      <- executor.executeStatement(connection, schemaStatement)
-      viewStatement          <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_VIEW)
-      _                      <- executor.executeStatement(connection, viewStatement)
+      connection        <- executor.getConnection
+      dbStatement       <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_DB)
+      _                 <- executor.executeStatement(connection, dbStatement)
+      schemaStatement   <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_SCHEMA)
+      _                 <- executor.executeStatement(connection, schemaStatement)
+      viewStatement     <- queryBuilder.buildOutputPortStatement(descriptor, CREATE_VIEW)
+      _                 <- executor.executeStatement(connection, viewStatement)
+      exitingColumnTags <-
+        if (!ignoreSnowflakeTags) getViewExistingColumnTags(connection, descriptor) else Right(List.empty)
+      tagStatements     <-
+        if (!ignoreSnowflakeTags) queryBuilder.buildOutputPortTagStatement(descriptor, exitingColumnTags, CREATE_TAGS)
+        else Right(Seq.empty[String])
+      createTagStatement    = tagStatements.filter(t => t.startsWith("CREATE TAG")).distinct
+      addColumnTagStatement = tagStatements.filter(t => !t.startsWith("CREATE TAG"))
+      _                      <- createTagStatement match {
+        case statement if statement.nonEmpty => executor.traverseMultipleStatements(connection, createTagStatement)
+        case _ => Right(GetComponentError("Skipping tag creation - no information provided"))
+      }
+      _                      <- addColumnTagStatement match {
+        case statement if statement.nonEmpty => executor.traverseMultipleStatements(connection, addColumnTagStatement)
+        case _ => Right(GetComponentError("Skipping tag creation - no information provided"))
+      }
       _                      <- executeUpdateAcl(descriptor, Seq(descriptor.dataProduct.dataProductOwner))
       _                      <- validateSchema(descriptor).left.map { err =>
         unprovisionOutputPort(descriptor)
@@ -148,6 +165,8 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
       schemaStatement    <- queryBuilder.buildStorageStatement(descriptor, CREATE_SCHEMA)
       _                  <- executor.executeStatement(connection, schemaStatement)
       exitingTableSchema <- getExistingTableSchema(connection, descriptor)
+      existingColumnTags <-
+        if (!ignoreSnowflakeTags) getExistingColumnTags(connection, descriptor) else Right(List.empty)
       component          <- queryBuilder.getComponent(descriptor)
       tables             <- queryBuilder.getTables(component)
       schemaChanges      <-
@@ -155,17 +174,28 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
           .checkSchemaChanges(descriptor, component, connection, exitingTableSchema, tables, true)
         else Right(List.empty[SchemaChanges])
       updateStatement    <-
-        if (schemaChanges.nonEmpty) queryBuilder.buildMultipleStatement(descriptor, UPDATE_TABLES, Some(schemaChanges))
+        if (schemaChanges.nonEmpty) queryBuilder
+          .buildMultipleStatement(descriptor, UPDATE_TABLES, Some(schemaChanges), None)
         else Right(Seq.empty[String])
-      tablesStatement    <- queryBuilder.buildMultipleStatement(descriptor, CREATE_TABLES, None)
-      _                  <- tablesStatement match {
-        case statement if statement.nonEmpty => executor.traverseMultipleStatements(connection, tablesStatement)
-        case _                               => Right(logger.info("Skipping table creation - no information provided"))
+      tablesStatement    <- queryBuilder.buildMultipleStatement(descriptor, CREATE_TABLES, None, None)
+      tagsStatement      <-
+        if (!ignoreSnowflakeTags) queryBuilder
+          .buildMultipleStatement(descriptor, CREATE_TAGS, None, Some(existingColumnTags))
+        else Right(Seq.empty[String])
+      createTagStatement    = tagsStatement.filter(t => t.startsWith("CREATE TAG")).distinct
+      addColumnTagStatement = tagsStatement.filter(t => !t.startsWith("CREATE TAG"))
+      _ <- createTagStatement match {
+        case statement if statement.nonEmpty => executor.traverseMultipleStatements(connection, createTagStatement)
+        case _ => Right(GetComponentError("Skipping tag creation - no information provided"))
       }
       fullStatement = tablesStatement ++ updateStatement
-      _                  <- fullStatement match {
-        case statement if statement.nonEmpty => executeMultipleStatement(connection, fullStatement)
+      _ <- fullStatement match {
+        case statement if statement.nonEmpty => executor.traverseMultipleStatements(connection, fullStatement)
         case _ => Left(GetComponentError("Skipping table creation - no information provided"))
+      }
+      _ <- addColumnTagStatement match {
+        case statement if statement.nonEmpty => executor.traverseMultipleStatements(connection, addColumnTagStatement)
+        case _ => Right(GetComponentError("Skipping tag creation - no information provided"))
       }
     } yield None
   }
@@ -174,7 +204,7 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
     logger.info("Starting storage unprovisioning")
     for {
       connection      <- executor.getConnection
-      tablesStatement <- queryBuilder.buildMultipleStatement(descriptor, DELETE_TABLES, None)
+      tablesStatement <- queryBuilder.buildMultipleStatement(descriptor, DELETE_TABLES, None, None)
       _               <- tablesStatement match {
         case statement if statement.nonEmpty => executor.traverseMultipleStatements(connection, tablesStatement)
         case _                               => Right(logger.info("Skipping table deletion - no tables to delete"))
@@ -324,12 +354,12 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
         val existing = acc.find(a => a.tableName.equals(tableName))
         if (existing.isEmpty) readResultSetRecursively(
           resultSet,
-          acc :+ TableSpec(tableName, List(ColumnSchemaSpec(columnName, dataType, constraint)))
+          acc :+ TableSpec(tableName, List(ColumnSchemaSpec(columnName, dataType, constraint)), None)
         )
         else {
           val newSpec     = existing.get.schema ++ List(ColumnSchemaSpec(columnName, dataType, constraint))
           val clearedList = acc.filterNot(a => a.tableName.equals(tableName))
-          readResultSetRecursively(resultSet, clearedList :+ TableSpec(tableName, newSpec))
+          readResultSetRecursively(resultSet, clearedList :+ TableSpec(tableName, newSpec, None))
         }
 
       }
@@ -351,6 +381,187 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
         val schemaInformationStatement = connection.prepareStatement(querySchemaInformation)
         schemaInformationStatement.setString(1, schema)
         schemaInformationStatement.setString(2, database)
+
+        try {
+          val schemaInformationResultSet = schemaInformationStatement.executeQuery()
+          try Right(readResultSet(schemaInformationResultSet))
+          finally {
+            schemaInformationResultSet.close()
+            alterStatement.close()
+          }
+        } finally schemaInformationStatement.close()
+      } match {
+        case Success(list)      => list
+        case Failure(exception) =>
+          Left(ExecuteStatementError(Some(getSchemaInformationQuery), List(exception.getMessage)))
+      }
+    } yield schemaInformationResult
+  }
+
+  def getExistingColumnTags(
+      connection: Connection,
+      descriptor: ProvisioningRequestDescriptor
+  ): Either[SnowflakeError, List[TableSpec]] = {
+
+    def readResultSetRecursively(resultSet: ResultSet, acc: List[TableSpec]): List[TableSpec] =
+      if (!resultSet.next()) acc
+      else {
+        val tableName  = resultSet.getString("TABLE_NAME")
+        val columnName = resultSet.getString("COLUMN_NAME")
+        val tagName    = resultSet.getString("TAG_NAME")
+        val tagValue   = resultSet.getString("TAG_VALUE")
+
+        val tagsMap = Map(tagName -> tagValue)
+
+        val tags = ListBuffer[Map[String, String]]()
+        tags += tagsMap
+
+        val existing = acc.find(a => a.tableName.equals(tableName))
+        if (existing.isEmpty) readResultSetRecursively(
+          resultSet,
+          acc :+
+            TableSpec(tableName, List(ColumnSchemaSpec(columnName, DataType.TEXT, None, Option(tags.toList))), None)
+        )
+        else {
+          val newSpec     = existing.get.schema ++
+            List(ColumnSchemaSpec(columnName, DataType.TEXT, None, Option(tags.toList)))
+          val clearedList = acc.filterNot(a => a.tableName.equals(tableName))
+          readResultSetRecursively(resultSet, clearedList :+ TableSpec(tableName, newSpec, None))
+        }
+
+      }
+
+    def readResultSet(resultSet: ResultSet): List[TableSpec] = readResultSetRecursively(resultSet, List.empty)
+    val getSchemaInformationQuery                            = queryBuilder.getTagsInformationQuery()
+    for {
+      component <- queryBuilder.getComponent(descriptor)
+      database = queryBuilder.getDatabaseName(descriptor, component.specific)
+      schema   = queryBuilder.getSchemaName(descriptor, component.specific)
+      tables            <- queryBuilder.getTables(component)
+      tagReferencesView <- getSnowflakeTagReferencesView(connection)
+      tableNamesForSql = tables.map(table => s"'${table.tableName.toUpperCase}'").mkString(", ")
+      schemaInformationResult <- Try {
+
+        val alterPrepared          = connection.prepareStatement("ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'")
+        val alterStatement         = alterPrepared.executeQuery()
+        val querySchemaInformation = getSchemaInformationQuery.replace("{TABLES}", tableNamesForSql)
+          .replace("{TAG_REFERENCES_VIEW}", tagReferencesView)
+        val schemaInformationStatement = connection.prepareStatement(querySchemaInformation)
+        schemaInformationStatement.setString(1, schema)
+        schemaInformationStatement.setString(2, database)
+        schemaInformationStatement.setString(3, "COLUMN")
+
+        try {
+          val schemaInformationResultSet = schemaInformationStatement.executeQuery()
+          try Right(readResultSet(schemaInformationResultSet))
+          finally {
+            schemaInformationResultSet.close()
+            alterStatement.close()
+          }
+        } finally schemaInformationStatement.close()
+      } match {
+        case Success(list)      => list
+        case Failure(exception) =>
+          Left(ExecuteStatementError(Some(getSchemaInformationQuery), List(exception.getMessage)))
+      }
+    } yield schemaInformationResult
+  }
+
+  def getViewExistingColumnTags(
+      connection: Connection,
+      descriptor: ProvisioningRequestDescriptor
+  ): Either[SnowflakeError, List[TableSpec]] = {
+
+    def readResultSetRecursively(resultSet: ResultSet, acc: List[TableSpec]): List[TableSpec] =
+      if (!resultSet.next()) acc
+      else {
+        val tableName  = resultSet.getString("TABLE_NAME")
+        val columnName = resultSet.getString("COLUMN_NAME")
+        val tagName    = resultSet.getString("TAG_NAME")
+        val tagValue   = resultSet.getString("TAG_VALUE")
+
+        val tagsMap = Map(tagName -> tagValue)
+
+        val tags = ListBuffer[Map[String, String]]()
+        tags += tagsMap
+
+        val existing = acc.find(a => a.tableName.equals(tableName))
+        if (existing.isEmpty) readResultSetRecursively(
+          resultSet,
+          acc :+
+            TableSpec(tableName, List(ColumnSchemaSpec(columnName, DataType.TEXT, None, Option(tags.toList))), None)
+        )
+        else {
+          val newSpec     = existing.get.schema ++
+            List(ColumnSchemaSpec(columnName, DataType.TEXT, None, Option(tags.toList)))
+          val clearedList = acc.filterNot(a => a.tableName.equals(tableName))
+          readResultSetRecursively(resultSet, clearedList :+ TableSpec(tableName, newSpec, None))
+        }
+
+      }
+
+    def readResultSet(resultSet: ResultSet): List[TableSpec] = readResultSetRecursively(resultSet, List.empty)
+    val getSchemaInformationQuery                            = queryBuilder.getViewColumnTagsInformationQuery()
+    for {
+      component <- queryBuilder.getComponent(descriptor)
+      customViewStatement = queryBuilder.getCustomViewStatement(component)
+      database            = queryBuilder.getCustomDatabaseName(customViewStatement) match {
+        case Some(customDbName) => customDbName
+        case _                  => queryBuilder.getDatabaseName(descriptor, component.specific)
+      }
+      schema              = queryBuilder.getCustomSchemaName(customViewStatement) match {
+        case Some(customSchemaName) => customSchemaName
+        case _                      => queryBuilder.getSchemaName(descriptor, component.specific)
+      }
+      viewName <- queryBuilder.getCustomViewName(customViewStatement) match {
+        case Some(customViewName) => Right(customViewName)
+        case _                    => queryBuilder.getViewName(component)
+      }
+      tagReferencesView <- getSnowflakeTagReferencesView(connection)
+      schemaInformationResult <- Try {
+
+        val alterPrepared          = connection.prepareStatement("ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'")
+        val alterStatement         = alterPrepared.executeQuery()
+        val querySchemaInformation = getSchemaInformationQuery.replace("{TAG_REFERENCES_VIEW}", tagReferencesView)
+        val schemaInformationStatement = connection.prepareStatement(querySchemaInformation)
+        schemaInformationStatement.setString(1, schema)
+        schemaInformationStatement.setString(2, database)
+        schemaInformationStatement.setString(3, viewName.toUpperCase())
+        schemaInformationStatement.setString(4, "COLUMN")
+
+        try {
+          val schemaInformationResultSet = schemaInformationStatement.executeQuery()
+          try Right(readResultSet(schemaInformationResultSet))
+          finally {
+            schemaInformationResultSet.close()
+            alterStatement.close()
+          }
+        } finally schemaInformationStatement.close()
+      } match {
+        case Success(list)      => list
+        case Failure(exception) =>
+          Left(ExecuteStatementError(Some(getSchemaInformationQuery), List(exception.getMessage)))
+      }
+    } yield schemaInformationResult
+  }
+
+  def getSnowflakeTagReferencesView(connection: Connection): Either[SnowflakeError, String] = {
+
+    def readResultSetRecursively(resultSet: ResultSet, acc: String): String =
+      if (!resultSet.next()) acc else { s"$tagReferencesDatabase.$tagReferencesSchema.$tagReferencesView" }
+
+    def readResultSet(resultSet: ResultSet): String =
+      readResultSetRecursively(resultSet, "SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES")
+    val getSchemaInformationQuery                   = queryBuilder.getExistsSnowflakeCopyStatement()
+    for {
+      schemaInformationResult <- Try {
+
+        val alterPrepared          = connection.prepareStatement("ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'")
+        val alterStatement         = alterPrepared.executeQuery()
+        val querySchemaInformation = getSchemaInformationQuery
+          .replace("{TAG_REFERENCES_DATABASE}", tagReferencesDatabase)
+          .replace("{TAG_REFERENCES_SCHEMA}", tagReferencesSchema).replace("{TAG_REFERENCES_VIEW}", tagReferencesView)
+        val schemaInformationStatement = connection.prepareStatement(querySchemaInformation)
 
         try {
           val schemaInformationResultSet = schemaInformationStatement.executeQuery()

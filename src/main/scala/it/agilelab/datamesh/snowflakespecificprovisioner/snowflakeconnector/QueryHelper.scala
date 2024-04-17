@@ -18,6 +18,7 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   CREATE_ROLE,
   CREATE_SCHEMA,
   CREATE_TABLES,
+  CREATE_TAGS,
   CREATE_VIEW,
   DELETE_ROLE,
   DELETE_SCHEMA,
@@ -32,7 +33,11 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   USAGE_ON_SCHEMA,
   USAGE_ON_WH
 }
-import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.warehouse
+import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.{
+  snowflakeTagNameField,
+  snowflakeTagValueField,
+  warehouse
+}
 
 import java.sql.{Connection, ResultSet}
 import scala.collection.mutable.ListBuffer
@@ -59,7 +64,8 @@ class QueryHelper extends LazyLogging {
   def buildMultipleStatement(
       descriptor: ProvisioningRequestDescriptor,
       operation: OperationType,
-      schemaChanges: Option[List[SchemaChanges]]
+      schemaChanges: Option[List[SchemaChanges]],
+      existingComunTags: Option[List[TableSpec]]
   ): Either[SnowflakeError, Seq[String]] = {
     logger.info("Starting building multiple statements")
     val result =
@@ -71,6 +77,8 @@ class QueryHelper extends LazyLogging {
       } yield operation match {
         case CREATE_TABLES => Right(createTablesStatement(dbName, schemaName, tables))
         case UPDATE_TABLES => updateTablesStatement(dbName, schemaName, tables, schemaChanges.getOrElse(List.empty))
+        case CREATE_TAGS   =>
+          createStorageTagStatements(dbName, schemaName, tables, existingComunTags.getOrElse(List.empty))
         case DELETE_TABLES => Right(deleteTablesStatement(dbName, schemaName, tables))
         case unsupportedOp => Left(UnsupportedOperationError(unsupportedOp))
       }
@@ -126,6 +134,41 @@ class QueryHelper extends LazyLogging {
       case SELECT_ON_VIEW  => Right(grantSelectOnViewStatement(dbName, schemaName, viewName, roleName))
       case DESCRIBE_VIEW   => Right(describeView(dbName, schemaName, viewName))
       case unsupportedOp   => Left(UnsupportedOperationError(unsupportedOp))
+    }
+  }.flatten
+
+  def buildOutputPortTagStatement(
+      descriptor: ProvisioningRequestDescriptor,
+      exitingColumnTags: List[TableSpec],
+      operation: OperationType
+  ): Either[SnowflakeError, Seq[String]] = {
+    logger.info("Starting building output port statement")
+    for {
+      component <- getComponent(descriptor)
+      customViewStatement = getCustomViewStatement(component)
+      dbName              = getCustomDatabaseName(customViewStatement) match {
+        case Some(customDbName) => customDbName
+        case _                  => getDatabaseName(descriptor, component.specific)
+      }
+      schemaName          = getCustomSchemaName(customViewStatement) match {
+        case Some(customSchemaName) => customSchemaName
+        case _                      => getSchemaName(descriptor, component.specific)
+      }
+      viewName <- getCustomViewName(customViewStatement) match {
+        case Some(customViewName) => Right(customViewName)
+        case _                    => getViewName(component)
+      }
+      schema <- getTableSchema(component)
+      componentTags       = getComponentTags(component)
+    } yield operation match {
+      case CREATE_TAGS => Right(createOutputportTagStatement(
+          dbName,
+          schemaName,
+          viewName,
+          schema,
+          exitingColumnTags.find(_.tableName.equals(viewName.toUpperCase())),
+          componentTags
+        ))
     }
   }.flatten
 
@@ -201,6 +244,20 @@ class QueryHelper extends LazyLogging {
             SHOW UNIQUE KEYS IN TABLE {CATALOG}.{SCHEMA}.{TABLE}
             """
 
+  def getTagsInformationQuery(): String = s"""
+            SELECT OBJECT_NAME TABLE_NAME, COLUMN_NAME, TAG_NAME, TAG_VALUE FROM {TAG_REFERENCES_VIEW}
+            where TAG_SCHEMA= ? AND tag_database = ? AND OBJECT_NAME in ({TABLES}) AND DOMAIN = ?
+            """
+
+  def getViewColumnTagsInformationQuery(): String = s"""
+            SELECT OBJECT_NAME TABLE_NAME, COLUMN_NAME, TAG_NAME, TAG_VALUE FROM {TAG_REFERENCES_VIEW}
+            where TAG_SCHEMA= ? AND tag_database = ? AND OBJECT_NAME = ? and DOMAIN = ?
+            """
+
+  def getExistsSnowflakeCopyStatement(): String = s"""
+            SHOW VIEWS IN {TAG_REFERENCES_DATABASE}.{TAG_REFERENCES_SCHEMA} STARTS WITH '{TAG_REFERENCES_VIEW}'
+            """
+
   def getTableKeysInformation(
       connection: Connection,
       dbName: String,
@@ -255,7 +312,7 @@ class QueryHelper extends LazyLogging {
 
     val existingSchemaInformation = existingSchemaInformationWithKey ++ otherColumns
 
-    Option(TableSpec(tableName, existingSchemaInformation))
+    Option(TableSpec(tableName, existingSchemaInformation, None))
   }
 
   def updateTableStatement(
@@ -287,14 +344,196 @@ class QueryHelper extends LazyLogging {
                    | ;""".stripMargin)
 
     val updateColumnConstraintStatements = columnsToRemoveConstraint
-      .map(c => s"""ALTER TABLE $dbName.$schemaName.${tableName.toUpperCase}
+      .map(c => s"""ALTER TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
                    | ${c.toRemoveColumnStatementConstraint}
                    |;""".stripMargin) ++
-      columnsToAddConstraint.map(c => s"""ALTER TABLE $dbName.$schemaName.${tableName.toUpperCase}
+      columnsToAddConstraint.map(c => s"""ALTER TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
                                          | ${c.toAddColumnStatementConstraint}
                                          |;""".stripMargin)
 
     Right(addColumnsStatement ++ dropColumnStatements ++ updateColumnTypeStatements ++ updateColumnConstraintStatements)
+  }
+
+  def createStorageTagStatement(
+      dbName: String,
+      schemaName: String,
+      tableName: String,
+      columnsList: List[ColumnSchemaSpec],
+      exitingColumnTags: Option[TableSpec],
+      componentTags: List[Map[String, String]]
+  ): Either[SnowflakeError, Seq[String]] = {
+
+    val removeTagStatements = exitingColumnTags.map(ex =>
+      ex.schema.map(col =>
+        col.tags.map(tag =>
+          tag.flatten.map(tg =>
+            columnsList.map(desCol =>
+              if (desCol.name.toUpperCase().equals(col.name.toUpperCase()) && !existsTagInDescriptor(tg, desCol))
+                createDropTagStatement("TABLE", dbName, schemaName, tableName, col, tg._1)
+              else ""
+            ).filter(p => !p.isEmpty)
+          ).flatten
+        )
+      ).flatten.flatten
+    ).getOrElse(List.empty)
+
+    val addTagOnColumnStatements = columnsList.map(c =>
+      c.tags.map(t =>
+        t.flatten.map(v =>
+          (if (v._1.equals(snowflakeTagNameField))
+             createColumnTagWithValueStatement("TABLE", dbName, schemaName, tableName, c, t, v)
+           else "")
+        )
+      )
+    ).flatten.flatten.filter(s => !s.isEmpty)
+
+    val createTagOnColumnStatements = columnsList.map(c =>
+      c.tags.map(t =>
+        t.flatten.map(v =>
+          if (v._1.equals(snowflakeTagNameField)) (s"""CREATE TAG IF NOT EXISTS
+                                                                                               | $dbName.$schemaName.""" +
+            "\"" + s"""${v._2}""" + "\"" + s"""
+                                                 | ;""").stripMargin
+          else ""
+        )
+      )
+    ).flatten.flatten.filter(s => !s.isEmpty)
+
+    val addTagOnComponentStatements = componentTags.flatten.map(v =>
+      (if (v._1.equals(snowflakeTagNameField))
+         createComponentTagWithValueStatement("TABLE", dbName, schemaName, tableName, componentTags, v)
+       else "")
+    ).filter(p => !p.isEmpty)
+
+    val createTagOnComponentStatements = componentTags.flatten
+      .map(v => (if (v._1.equals(snowflakeTagNameField)) (s"""CREATE TAG IF NOT EXISTS
+            | $dbName.$schemaName.""" + "\"" + s"""${v._2}""" + "\"" + s"""
+                                                 | ;""").stripMargin else "")).filter(p => !p.isEmpty)
+
+    Right(
+      removeTagStatements ++ addTagOnColumnStatements ++ addTagOnComponentStatements ++
+        createTagOnColumnStatements.distinct ++ createTagOnComponentStatements.distinct
+    )
+  }
+
+  def existsTagInDescriptor(existingTag: (String, String), descriptorColumn: ColumnSchemaSpec): Boolean = {
+
+    val verifiedTags = descriptorColumn.tags.getOrElse(List.empty)
+      .map(tag => tag.filter(tg => (tg._1.equals(snowflakeTagNameField) && tg._2.equals(existingTag._1)))).flatten
+      .filter(p => !p._1.isEmpty)
+
+    if (verifiedTags.size > 0) true else false
+
+  }
+
+  def createColumnTagWithValueStatement(
+      componentType: String,
+      dbName: String,
+      schemaName: String,
+      tableName: String,
+      column: ColumnSchemaSpec,
+      tags: List[Map[String, String]],
+      tag: (String, String)
+  ): String = {
+
+    val valueTag = tags.flatten.filter(v => v._1.equals(snowflakeTagValueField))
+    val valore   = if (valueTag.size > 0) valueTag.head._2 else ""
+
+    (s"""ALTER $componentType IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+        | ${column.toUpdateColumnStatementTag}
+        | $dbName.$schemaName.""" + "\"" + s"""${tag._2}""" + "\"" + s""" = '$valore'
+         |;""").stripMargin
+
+  }
+
+  def createComponentTagWithValueStatement(
+      componentType: String,
+      dbName: String,
+      schemaName: String,
+      tableName: String,
+      tags: List[Map[String, String]],
+      tag: (String, String)
+  ): String = {
+
+    val valueTag = tags.flatten.filter(v => v._1.equals(snowflakeTagValueField))
+    val valore   = if (valueTag.size > 0) valueTag.head._2 else ""
+
+    (s"""ALTER $componentType IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+        | SET TAG $dbName.$schemaName.""" + "\"" + s"""${tag._2}""" + "\"" + s""" = '$valore'
+                                                                        |;""").stripMargin
+
+  }
+
+  def createDropTagStatement(
+      componentType: String,
+      dbName: String,
+      schemaName: String,
+      tableName: String,
+      column: ColumnSchemaSpec,
+      tag: String
+  ): String = (s"""ALTER $componentType IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+        | ${column.toRemoveColumnStatementTag}
+        | $dbName.$schemaName.""" + "\"" + s"""$tag""" + "\"" + s"""
+                                                                        |;""").stripMargin
+
+  def createOutputportTagStatement(
+      dbName: String,
+      schemaName: String,
+      tableName: String,
+      columnsList: List[ColumnSchemaSpec],
+      exitingColumnTags: Option[TableSpec],
+      componentTags: List[Map[String, String]]
+  ): Seq[String] = {
+
+    val removeTagStatements = exitingColumnTags.map(ex =>
+      ex.schema.map(col =>
+        col.tags.map(tag =>
+          tag.flatten.map(tg =>
+            columnsList.map(desCol =>
+              if (desCol.name.toUpperCase().equals(col.name.toUpperCase()) && !existsTagInDescriptor(tg, desCol))
+                createDropTagStatement("VIEW", dbName, schemaName, tableName, col, tg._1)
+              else ""
+            ).filter(p => !p.isEmpty)
+          ).flatten
+        )
+      ).flatten.flatten
+    ).getOrElse(List.empty)
+
+    val addTagOnColumnStatements = columnsList.map(c =>
+      c.tags.map(t =>
+        t.flatten.map(v =>
+          if (v._1.equals(snowflakeTagNameField))
+            createColumnTagWithValueStatement("VIEW", dbName, schemaName, tableName, c, t, v)
+          else ""
+        )
+      )
+    ).flatten.flatten.filter(s => !s.isEmpty)
+
+    val createTagOnColumnStatements = columnsList.map(c =>
+      c.tags.map(t =>
+        t.flatten.map(v =>
+          if (v._1.equals(snowflakeTagNameField)) (s"""CREATE TAG IF NOT EXISTS
+                                                                                               | $dbName.$schemaName.""" +
+            "\"" + s"""${v._2}""" + "\"" + s"""
+                                                 | ;""").stripMargin
+          else ""
+        )
+      )
+    ).flatten.flatten.filter(s => !s.isEmpty)
+
+    val addTagOnComponentStatements = componentTags.flatten.map(v =>
+      (if (v._1.equals(snowflakeTagNameField))
+         createComponentTagWithValueStatement("VIEW", dbName, schemaName, tableName, componentTags, v)
+       else "")
+    ).filter(p => !p.isEmpty)
+
+    val createTagOnComponentStatements = componentTags.flatten
+      .map(v => (if (v._1.equals(snowflakeTagNameField)) (s"""CREATE TAG IF NOT EXISTS
+            | $dbName.$schemaName.""" + "\"" + s"""${v._2}""" + "\"" + s"""
+                                                 | ;""").stripMargin else "")).filter(p => !p.isEmpty)
+
+    removeTagStatements ++ addTagOnColumnStatements ++ addTagOnComponentStatements ++
+      createTagOnColumnStatements.distinct ++ createTagOnComponentStatements.distinct
   }
 
   def checkSchemaChanges(
@@ -306,26 +545,28 @@ class QueryHelper extends LazyLogging {
       dropColumnEnabled: Boolean
   ): Either[SnowflakeError, List[SchemaChanges]] = {
 
-    val dbName     = getDatabaseName(descriptor, component.specific)
-    val schemaName = getSchemaName(descriptor, component.specific)
+    val dbName         = getDatabaseName(descriptor, component.specific)
+    val schemaName     = getSchemaName(descriptor, component.specific)
+    val existingTables = existingSchemaInformation.map(a => a.tableName)
 
-    val results = tables.foldLeft[Either[SnowflakeError, List[SchemaChanges]]](Right(Nil)) { (acc, table) =>
-      acc match {
-        case Right(schemaChanges) => checkTableSchemaChanges(
-            dbName,
-            schemaName,
-            table.tableName.toUpperCase(),
-            connection,
-            existingSchemaInformation.find(_.tableName.equals(table.tableName.toUpperCase())),
-            table.schema,
-            dropColumnEnabled
-          ) match {
-            case Right(newSchemaChanges) => Right(schemaChanges ++ List(newSchemaChanges))
-            case Left(error)             => Left(error)
-          }
-        case Left(error)          => Left(error)
+    val results = tables.filter(t => existingTables.contains(t.tableName.toUpperCase()))
+      .foldLeft[Either[SnowflakeError, List[SchemaChanges]]](Right(Nil)) { (acc, table) =>
+        acc match {
+          case Right(schemaChanges) => checkTableSchemaChanges(
+              dbName,
+              schemaName,
+              table.tableName.toUpperCase(),
+              connection,
+              existingSchemaInformation.find(_.tableName.equals(table.tableName.toUpperCase())),
+              table.schema,
+              dropColumnEnabled
+            ) match {
+              case Right(newSchemaChanges) => Right(schemaChanges ++ List(newSchemaChanges))
+              case Left(error)             => Left(error)
+            }
+          case Left(error)          => Left(error)
+        }
       }
-    }
 
     results.map(_.reverse.toSeq)
   }
@@ -342,10 +583,11 @@ class QueryHelper extends LazyLogging {
 
     val existingSchemaInformation =
       getTableKeysInformation(connection, dbName, schemaName, tableName, existingSchemaInformationOriginal)
-    val statementErrors           = new ListBuffer[String]()
-    val incomingShame             = incomingShameOriginal.map(col => col.copy(name = col.name.toUpperCase()))
-    val existingColumns           = existingSchemaInformation.get.schema.map(_.name).toSet
-    val newColumns                = incomingShame.map(_.name).toSet
+
+    val statementErrors = new ListBuffer[String]()
+    val incomingShame   = incomingShameOriginal.map(col => col.copy(name = col.name.toUpperCase()))
+    val existingColumns = existingSchemaInformation.get.schema.map(_.name).toSet
+    val newColumns      = incomingShame.map(_.name).toSet
 
     val columnsToAdd    = incomingShame.filter(spec => !existingColumns.contains(spec.name))
     val columnsToDelete = existingSchemaInformation.get.schema.filter(spec => !newColumns.contains(spec.name))
@@ -363,8 +605,10 @@ class QueryHelper extends LazyLogging {
     val newPrimaryKeyColumns = incomingShame.filter(c => c.constraint.contains(ConstraintType.PRIMARY_KEY))
       .distinctBy(c => c.name).sortBy(c => c.name)
 
-    if (!existingPrimaryKeyColumns.sortBy(_.name).sameElements(newPrimaryKeyColumns.sortBy(_.name))) statementErrors +=
-      "PRIMARY KEY is changed and this operation is incompatible"
+    if (
+      existingPrimaryKeyColumns.filter(p => !newPrimaryKeyColumns.map(n => n.name).contains(p.name)).size > 0 ||
+      newPrimaryKeyColumns.filter(p => !existingPrimaryKeyColumns.map(n => n.name).contains(p.name)).size > 0
+    ) statementErrors += "PRIMARY KEY is changed and this operation is incompatible"
 
     val noConstraintColumns = existingSchemaInformation.get.schema.filter(c => c.constraint.isEmpty)
     val columnsWithIncompatibleConstraintChanges = columnsToUpdate
@@ -430,13 +674,43 @@ class QueryHelper extends LazyLogging {
       schemaChanges: List[SchemaChanges]
   ): Either[SnowflakeError, Seq[String]] = {
 
+    val existingTables = schemaChanges.map(a => a.table)
+
+    val results = tables.filter(t => existingTables.contains(t.tableName.toUpperCase()))
+      .foldLeft[Either[SnowflakeError, List[String]]](Right(Nil)) { (acc, table) =>
+        acc match {
+          case Right(statements) => updateTableStatement(
+              dbName,
+              schemaName,
+              table.tableName.toUpperCase(),
+              schemaChanges.find(_.table.equals(table.tableName.toUpperCase))
+            ) match {
+              case Right(newStatements) => Right(statements ++ newStatements)
+              case Left(error)          => Left(error)
+            }
+          case Left(error)       => Left(error)
+        }
+      }
+
+    results.map(_.reverse.toSeq)
+  }
+
+  def createStorageTagStatements(
+      dbName: String,
+      schemaName: String,
+      tables: List[TableSpec],
+      exitingColumnTags: List[TableSpec]
+  ): Either[SnowflakeError, Seq[String]] = {
+
     val results = tables.foldLeft[Either[SnowflakeError, List[String]]](Right(Nil)) { (acc, table) =>
       acc match {
-        case Right(statements) => updateTableStatement(
+        case Right(statements) => createStorageTagStatement(
             dbName,
             schemaName,
             table.tableName.toUpperCase(),
-            schemaChanges.find(_.table.equals(table.tableName.toUpperCase))
+            table.schema,
+            exitingColumnTags.find(_.tableName.equals(table.tableName.toUpperCase())),
+            table.tags.getOrElse(List.empty)
           ) match {
             case Right(newStatements) => Right(statements ++ newStatements)
             case Left(error)          => Left(error)
@@ -515,6 +789,12 @@ class QueryHelper extends LazyLogging {
     schema       <- dataContract.hcursor.downField("schema").as[List[ColumnSchemaSpec]].left
       .map(error => ParseError(Some(component.toString), Some("schema"), List(s"Parse error: ${error.getMessage}")))
   } yield schema
+
+  def getComponentTags(component: ComponentDescriptor): List[Map[String, String]] =
+    component.specific.hcursor.downField("tags").as[List[Map[String, String]]] match {
+      case Right(componentTags) => componentTags
+      case Left(_)              => List.empty
+    }
 
   def getTableName(component: ComponentDescriptor): Either[SnowflakeError, String] = component.specific.hcursor
     .downField("tableName").as[String].left.map(error =>

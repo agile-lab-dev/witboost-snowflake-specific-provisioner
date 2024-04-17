@@ -60,7 +60,7 @@ test:
   script:
     - apt-get update -yqq && apt-get install -yqq npm
     - npm install @openapitools/openapi-generator-cli@2.7.0 -g
-    - 'sbt clean generateCode coverage test coverageReport'
+    - 'sbt -Dconfig.override_with_env_vars=true clean generateCode coverage test coverageReport'
   coverage: '/Statement coverage[A-Za-z\.*]\s*:\s*([^%]+)/'
   artifacts:
     paths:

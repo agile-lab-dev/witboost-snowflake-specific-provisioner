@@ -1,0 +1,77 @@
+dataProduct:
+  name: DpOwnerTest
+  environment: dev
+  description: Dataproduct invoice
+  dataProductOwner: group:bigdata
+  dataProductOwnerDisplayName: Group BigData
+  domain: marketing
+  kind: dataproduct
+  email: contact@example.com
+  version: 1.0.0
+  fullyQualifiedName: InvoiceDataProduct
+  displayName: Invoice
+  informationSLA: Info
+  maturity: Tactical
+  billing: {}
+  tags: []
+  id: domain:marketing.Marketing-Invoice-1.1
+  specific: {}
+  components:
+    - id: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1
+      name: Marketing-Invoice-S3-Ingestion-Data-1
+      fullyQualifiedName: Marketing Invoice S3 Ingestion Data
+      description: Marketing Invoice S3 Ingestion Data
+      kind: storage
+      owners:
+        - group:bigdata
+      infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0
+      useCaseTemplateId: urn:dmb:utm:template-id-1:1.0.0
+      dependsOn: [ ]
+      platform: CDP_AWS
+      technology: CDP_S3
+      storageType: SQL
+      tags: [ ]
+      specific:
+        database: TESTDB
+        schema: PUBLIC
+        tables:
+          - tableName: table1
+            tags:
+              - tagFQN: tag tabella
+                source: Tag
+                labelType: Manual
+                state: Confirmed
+                value: valore di prova
+            schema:
+            - name: id
+              dataType: TEXT
+              constraint: PRIMARY_KEY
+              tags:
+                - tagFQN: tag di prova
+                  source: Tag
+                  labelType: Manual
+                  state: Confirmed
+                  value: valore di prova
+            - name: hour
+              dataType: TEXT
+              constraint: PRIMARY_KEY
+            - name: date
+              dataType: TEXT
+              constraint: PRIMARY_KEY
+            - name: name
+              dataType: TEXT
+            - name: phone
+              dataType: NUMBER
+              constraint: NULL
+          - tableName: table2
+            schema:
+              - name: id
+                dataType: TEXT
+                constraint: PRIMARY_KEY
+              - name: name
+                dataType: TEXT
+                constraint: NOT_NULL
+              - name: phone
+                dataType: NUMBER
+                constraint: UNIQUE
+componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

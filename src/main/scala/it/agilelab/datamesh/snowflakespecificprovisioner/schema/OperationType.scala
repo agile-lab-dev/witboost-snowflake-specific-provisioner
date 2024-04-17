@@ -32,4 +32,5 @@ object OperationType extends Enumeration {
   val ASSIGN_ROLE: schema.OperationType.Value     = Value("assignRole")
 
   val DESCRIBE_VIEW: schema.OperationType.Value = Value("describeView")
+  val CREATE_TAGS: schema.OperationType.Value   = Value("createTags")
 }

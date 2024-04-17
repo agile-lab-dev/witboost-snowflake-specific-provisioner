@@ -4,9 +4,12 @@ import com.typesafe.scalalogging.LazyLogging
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
 import io.circe.Json
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.ComponentDescriptor
-import it.agilelab.datamesh.snowflakespecificprovisioner.api.dto.SnowflakeOutputPortDetailsDto
-import it.agilelab.datamesh.snowflakespecificprovisioner.api.dto.OutputPortDetailsType
-import it.agilelab.datamesh.snowflakespecificprovisioner.api.dto.SnowflakeOutputPortDetailsStringType
+import it.agilelab.datamesh.snowflakespecificprovisioner.api.dto.{
+  OutputPortDetailsType,
+  SnowflakeOutputPortDetailsDto,
+  SnowflakeOutputPortDetailsLinkType,
+  SnowflakeOutputPortDetailsStringType
+}
 import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfigurationWrapper
 
 class ProvisionInfoHelper(config: ApplicationConfigurationWrapper) extends LazyLogging {
@@ -25,10 +28,15 @@ class ProvisionInfoHelper(config: ApplicationConfigurationWrapper) extends LazyL
     } yield SnowflakeOutputPortDetailsDto(Map(
       "aString1" -> SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "Database Name", dbName),
       "aString2" -> SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "Schema Name", schemaName),
-      "aLink3"   ->
+      "aString3" ->
         SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "Database Connection", jdbcUrl),
       "aString4" -> SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "View", viewsName),
-      "aLink5" -> SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "Snowflake Url", snowflakeUrl)
+      "aLink5"   -> SnowflakeOutputPortDetailsLinkType(
+        OutputPortDetailsType.LinkType,
+        "Snowflake Url",
+        "View on Snowflake",
+        snowflakeUrl
+      )
     ))
 
   def getDatabaseNameInfo(descriptor: ProvisioningRequestDescriptor, specific: Json): String =

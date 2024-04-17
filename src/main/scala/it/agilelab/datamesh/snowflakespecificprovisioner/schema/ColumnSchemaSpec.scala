@@ -5,7 +5,12 @@ import io.circe.generic.semiauto.deriveDecoder
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.ConstraintType.ConstraintType
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.DataType.DataType
 
-case class ColumnSchemaSpec(name: String, dataType: DataType, constraint: Option[ConstraintType] = None) {
+case class ColumnSchemaSpec(
+    name: String,
+    dataType: DataType,
+    constraint: Option[ConstraintType] = None,
+    tags: Option[List[Map[String, String]]] = None
+) {
 
   def toColumnStatement: String = constraint match {
     case Some(value) => value match {
@@ -28,6 +33,10 @@ case class ColumnSchemaSpec(name: String, dataType: DataType, constraint: Option
       }
     case _           => s"$name $dataType"
   }
+
+  def toUpdateColumnStatementTag: String = s"ALTER COLUMN $name SET TAG"
+
+  def toRemoveColumnStatementTag: String = s"ALTER COLUMN $name UNSET TAG"
 
   def toRemoveColumnStatementConstraint: String = constraint match {
     case Some(value) => value match {
