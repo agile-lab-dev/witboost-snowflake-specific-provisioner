@@ -5,7 +5,7 @@ import cats.Semigroup
 import com.typesafe.scalalogging.LazyLogging
 import it.agilelab.datamesh.snowflakespecificprovisioner.api.dto.SnowflakeOutputPortDetailsDto
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants
-import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants.{OUTPUT_PORT, STORAGE}
+import it.agilelab.datamesh.snowflakespecificprovisioner.model.ComponentDescriptor.{OutputPort, StorageArea}
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.{
   Info,
   ProvisioningRequestDescriptor,
@@ -167,7 +167,10 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
       exitingTableSchema <- getExistingTableSchema(connection, descriptor)
       existingColumnTags <-
         if (!ignoreSnowflakeTags) getExistingColumnTags(connection, descriptor) else Right(List.empty)
-      component          <- queryBuilder.getComponent(descriptor)
+      component          <- queryBuilder.getComponent(descriptor).flatMap {
+        case storageArea: StorageArea => Right(storageArea)
+        case _ => Left(GetComponentError(descriptor.componentIdToProvision, List(s"Unsupported component type!")))
+      }
       tables             <- queryBuilder.getTables(component)
       schemaChanges      <-
         if (exitingTableSchema.nonEmpty) queryBuilder
@@ -214,16 +217,15 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
 
   def executeProvision(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Option[ProvisioningStatus]] =
     descriptor.getComponentToProvision match {
-      case Some(component) => component.getKind match {
-          case Right(kind) if kind.equals(STORAGE)     => provisionStorage(descriptor)
-          case Right(kind) if kind.equals(OUTPUT_PORT) => provisionOutputPort(descriptor)
-          case Right(unsupportedKind)                  => Left(ProvisioningValidationError(
+      case Some(component) => component match {
+          case _: StorageArea  => provisionStorage(descriptor)
+          case _: OutputPort   => provisionOutputPort(descriptor)
+          case unsupportedKind => Left(ProvisioningValidationError(
               descriptor.getComponentToProvision.map(_.toString),
               Some(Constants.KIND_FIELD),
-              List("Unsupported component kind: " + unsupportedKind),
+              List("Unsupported component kind: " + unsupportedKind.kind),
               List("The Snowflake Specific Provisioner can only deploy storage and output port components")
             ))
-          case Left(error)                             => Left(error)
         }
       case _               => Left(ParseError(
           Some(descriptor.dataProduct.toString),
@@ -234,16 +236,15 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
 
   def executeUnprovision(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] =
     descriptor.getComponentToProvision match {
-      case Some(component) => component.getKind match {
-          case Right(kind) if kind.equals(STORAGE)     => unprovisionStorage(descriptor)
-          case Right(kind) if kind.equals(OUTPUT_PORT) => unprovisionOutputPort(descriptor)
-          case Right(unsupportedKind)                  => Left(ProvisioningValidationError(
+      case Some(component) => component match {
+          case _: StorageArea  => unprovisionStorage(descriptor)
+          case _: OutputPort   => unprovisionOutputPort(descriptor)
+          case unsupportedKind => Left(ProvisioningValidationError(
               descriptor.getComponentToProvision.map(_.toString),
               Some(Constants.KIND_FIELD),
-              List("Unsupported component kind: " + unsupportedKind),
+              List("Unsupported component kind: " + unsupportedKind.kind),
               List("The Snowflake Specific Provisioner can only undeploy storage and output port components")
             ))
-          case Left(error)                             => Left(error)
         }
       case _               => Left(ParseError(
           Some(descriptor.dataProduct.toString),
@@ -258,15 +259,14 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
   ): Either[SnowflakeError, Seq[String]] = {
     logger.info("Starting executing executeUpdateAcl for users: {}", refs.mkString(", "))
     descriptor.getComponentToProvision match {
-      case Some(component) => component.getKind match {
-          case Right(kind) if kind.equals(OUTPUT_PORT) => updateAclOutputPort(descriptor, refs)
-          case Right(unsupportedKind)                  => Left(ProvisioningValidationError(
+      case Some(component) => component match {
+          case _: OutputPort   => updateAclOutputPort(descriptor, refs)
+          case unsupportedKind => Left(ProvisioningValidationError(
               descriptor.getComponentToProvision.map(_.toString),
               Some(Constants.KIND_FIELD),
-              List("Unsupported component kind: " + unsupportedKind),
+              List("Unsupported component kind: " + unsupportedKind.kind),
               List("The Snowflake Specific Provisioner can only update ACL on output port components")
             ))
-          case Left(error)                             => Left(error)
         }
       case _               => Left(ParseError(
           Some(descriptor.dataProduct.toString),
@@ -281,9 +281,12 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
    *  @return a SnowflakeError if the validation fails, Unit otherwise
    */
   def validateDescriptor(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = for {
-    component <- queryBuilder.getComponent(descriptor)
+    component <- queryBuilder.getComponent(descriptor).flatMap {
+      case outputPort: OutputPort => Right(outputPort)
+      case _                      => Left(GetComponentError("Unsupported component type!"))
+    }
     customViewStatement = queryBuilder.getCustomViewStatement(component)
-    result <-
+    result    <-
       if (customViewStatement.isEmpty) {
         logger.info("No custom view found. Skipping schema validation")
         Right(())
@@ -312,15 +315,16 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
    *  @param descriptor the request descriptor
    *  @return a SnowflakeError if the validation fails, Unit otherwise
    */
-  def validateSpecificFields(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] = for {
-    component <- queryBuilder.getComponent(descriptor)
-    kind      <- component.getKind
-    res       <- kind match {
-      case OUTPUT_PORT => queryBuilder.getTableSchema(component).map(_ => ())
-      case STORAGE     => queryBuilder.getTables(component).map(_ => ())
-      case unsupported => Left(ParseError(problems = List(s"The specified kind $unsupported is not supported")))
+  def validateSpecificFields(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, Unit] =
+    queryBuilder.getComponent(descriptor) match {
+      case Right(component) => component match {
+          case storageArea: StorageArea => queryBuilder.getTables(storageArea).map(_ => ())
+          case outputPort: OutputPort   => queryBuilder.getTableSchema(outputPort).map(_ => ())
+          case unsupported              =>
+            Left(ParseError(problems = List(s"The specified kind ${unsupported.kind} is not supported")))
+        }
+      case Left(_)          => Left(ParseError(Option("Invalid component type!")))
     }
-  } yield res
 
   def executeStatement(connection: Connection, statementString: String): Either[SnowflakeError, Unit] = Try {
     logger.info("Executing SQL statement: " + statementString.replaceAll("\\n", ""))
@@ -366,36 +370,41 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
 
     def readResultSet(resultSet: ResultSet): List[TableSpec] = readResultSetRecursively(resultSet, List.empty)
     val getSchemaInformationQuery                            = queryBuilder.createTableSchemaInformationQuery()
-    for {
-      component <- queryBuilder.getComponent(descriptor)
-      database = queryBuilder.getDatabaseName(descriptor, component.specific)
-      schema   = queryBuilder.getSchemaName(descriptor, component.specific)
-      tables <- queryBuilder.getTables(component)
-      tableNamesForSql = tables.map(table => s"'${table.tableName.toUpperCase}'").mkString(", ")
-      schemaInformationResult <- Try {
+    queryBuilder.getComponent(descriptor) match {
+      case Right(component) => component match {
+          case storageArea: StorageArea =>
+            val database = queryBuilder.getDatabaseName(descriptor, storageArea.specific)
+            val schema   = queryBuilder.getSchemaName(descriptor, storageArea.specific)
+            queryBuilder.getTables(storageArea).flatMap { tables =>
+              val tableNamesForSql        = tables.map(table => s"'${table.tableName.toUpperCase}'").mkString(", ")
+              val schemaInformationResult = Try {
+                val alterPrepared  = connection.prepareStatement("ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'")
+                val alterStatement = alterPrepared.executeQuery()
+                val querySchemaInformation     = getSchemaInformationQuery.replace("{CATALOG}", database)
+                  .replace("{TABLES}", tableNamesForSql)
+                val schemaInformationStatement = connection.prepareStatement(querySchemaInformation)
+                schemaInformationStatement.setString(1, schema)
+                schemaInformationStatement.setString(2, database)
 
-        val alterPrepared          = connection.prepareStatement("ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'")
-        val alterStatement         = alterPrepared.executeQuery()
-        val querySchemaInformation = getSchemaInformationQuery.replace("{CATALOG}", database)
-          .replace("{TABLES}", tableNamesForSql)
-        val schemaInformationStatement = connection.prepareStatement(querySchemaInformation)
-        schemaInformationStatement.setString(1, schema)
-        schemaInformationStatement.setString(2, database)
-
-        try {
-          val schemaInformationResultSet = schemaInformationStatement.executeQuery()
-          try Right(readResultSet(schemaInformationResultSet))
-          finally {
-            schemaInformationResultSet.close()
-            alterStatement.close()
-          }
-        } finally schemaInformationStatement.close()
-      } match {
-        case Success(list)      => list
-        case Failure(exception) =>
-          Left(ExecuteStatementError(Some(getSchemaInformationQuery), List(exception.getMessage)))
-      }
-    } yield schemaInformationResult
+                try {
+                  val schemaInformationResultSet = schemaInformationStatement.executeQuery()
+                  try Right(readResultSet(schemaInformationResultSet))
+                  finally {
+                    schemaInformationResultSet.close()
+                    alterStatement.close()
+                  }
+                } finally schemaInformationStatement.close()
+              } match {
+                case Success(list)      => list
+                case Failure(exception) =>
+                  Left(ExecuteStatementError(Some(getSchemaInformationQuery), List(exception.getMessage)))
+              }
+              schemaInformationResult
+            }
+          case _                        => Left(ParseError(Option("Invalid component type!")))
+        }
+      case Left(_)          => Left(ParseError(Option("Cannot perform this operation!")))
+    }
   }
 
   def getExistingColumnTags(
@@ -434,14 +443,16 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
     def readResultSet(resultSet: ResultSet): List[TableSpec] = readResultSetRecursively(resultSet, List.empty)
     val getSchemaInformationQuery                            = queryBuilder.getTagsInformationQuery()
     for {
-      component <- queryBuilder.getComponent(descriptor)
+      component <- queryBuilder.getComponent(descriptor).flatMap {
+        case storageArea: StorageArea => Right(storageArea)
+        case _                        => Left(ParseError(problems = List("Cannot fetch the required component!")))
+      }
       database = queryBuilder.getDatabaseName(descriptor, component.specific)
-      schema   = queryBuilder.getSchemaName(descriptor, component.specific)
+      schema = queryBuilder.getSchemaName(descriptor, component.specific)
       tables            <- queryBuilder.getTables(component)
       tagReferencesView <- getSnowflakeTagReferencesView(connection)
       tableNamesForSql = tables.map(table => s"'${table.tableName.toUpperCase}'").mkString(", ")
       schemaInformationResult <- Try {
-
         val alterPrepared          = connection.prepareStatement("ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'")
         val alterStatement         = alterPrepared.executeQuery()
         val querySchemaInformation = getSchemaInformationQuery.replace("{TABLES}", tableNamesForSql)
@@ -450,7 +461,6 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
         schemaInformationStatement.setString(1, schema)
         schemaInformationStatement.setString(2, database)
         schemaInformationStatement.setString(3, "COLUMN")
-
         try {
           val schemaInformationResultSet = schemaInformationStatement.executeQuery()
           try Right(readResultSet(schemaInformationResultSet))
@@ -502,14 +512,18 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
 
     def readResultSet(resultSet: ResultSet): List[TableSpec] = readResultSetRecursively(resultSet, List.empty)
     val getSchemaInformationQuery                            = queryBuilder.getViewColumnTagsInformationQuery()
+
     for {
-      component <- queryBuilder.getComponent(descriptor)
+      component <- queryBuilder.getComponent(descriptor).flatMap {
+        case outputPort: OutputPort => Right(outputPort)
+        case _                      => Left(ParseError(problems = List("cannot fetch the required component!")))
+      }
       customViewStatement = queryBuilder.getCustomViewStatement(component)
-      database            = queryBuilder.getCustomDatabaseName(customViewStatement) match {
+      database = queryBuilder.getCustomDatabaseName(customViewStatement) match {
         case Some(customDbName) => customDbName
         case _                  => queryBuilder.getDatabaseName(descriptor, component.specific)
       }
-      schema              = queryBuilder.getCustomSchemaName(customViewStatement) match {
+      schema   = queryBuilder.getCustomSchemaName(customViewStatement) match {
         case Some(customSchemaName) => customSchemaName
         case _                      => queryBuilder.getSchemaName(descriptor, component.specific)
       }
@@ -519,7 +533,6 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
       }
       tagReferencesView <- getSnowflakeTagReferencesView(connection)
       schemaInformationResult <- Try {
-
         val alterPrepared          = connection.prepareStatement("ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'")
         val alterStatement         = alterPrepared.executeQuery()
         val querySchemaInformation = getSchemaInformationQuery.replace("{TAG_REFERENCES_VIEW}", tagReferencesView)
@@ -583,7 +596,10 @@ class SnowflakeManager(executor: QueryExecutor, principalsMapper: PrincipalsMapp
     _                 <- validateDescriptor(descriptor)
     connection        <- executor.getConnection
     validateStatement <- queryBuilder.buildOutputPortStatement(descriptor, DESCRIBE_VIEW)
-    component         <- queryBuilder.getComponent(descriptor)
+    component         <- queryBuilder.getComponent(descriptor).flatMap {
+      case outputPort: OutputPort => Right(outputPort)
+      case _                      => Left(GetComponentError("Unsupported component type!"))
+    }
     result            <- for {
       // Retrieves schema from the component descriptor
       schema          <- queryBuilder.getTableSchema(component)

@@ -38,7 +38,7 @@ dataProduct:
             dataType: TEXT
           - name: phone
             dataType: NUMBER
-            constraint: NULL
+            constraint: NOT_NULL
       tags: [ ]
       specific:
         viewName: snowflake_view

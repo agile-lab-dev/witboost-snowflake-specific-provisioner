@@ -9,7 +9,7 @@ object Versions {
   lazy val postgresqlVersion        = "42.3.3"
   lazy val scalikeJDBCVersion       = "4.0.0"
   lazy val flywayVersion            = "8.5.4"
-  lazy val circeVersion             = "0.14.1"
+  lazy val circeVersion             = "0.14.2"
   lazy val json4sVersion            = "4.0.4"
   lazy val mustacheVersion          = "0.9.10"
   lazy val openapi4jVersion         = "1.0.7"

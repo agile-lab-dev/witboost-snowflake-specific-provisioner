@@ -2,12 +2,19 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.model
 
 import io.circe.yaml.parser
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants
+import it.agilelab.datamesh.snowflakespecificprovisioner.model.ComponentDescriptor.{OutputPort, StorageArea, Workload}
 import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.ParseError
 
 case class ProvisioningRequestDescriptor(dataProduct: DataProductDescriptor, componentIdToProvision: String) {
 
-  def getComponentToProvision: Option[ComponentDescriptor] = dataProduct.components
-    .find(component => component.id.equals(componentIdToProvision))
+  def getComponentToProvision: Option[ComponentDescriptor] = dataProduct.components.find { component =>
+    component match {
+      case storageArea: StorageArea => storageArea.id.equals(componentIdToProvision)
+      case outputPort: OutputPort   => outputPort.id.equals(componentIdToProvision)
+      case workload: Workload       => workload.id.equals(componentIdToProvision)
+    }
+  }
+
 }
 
 object ProvisioningRequestDescriptor {

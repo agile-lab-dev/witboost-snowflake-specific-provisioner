@@ -123,7 +123,7 @@ To clarify, below a detailed explain of how configure your variables. By accessi
 Based on this, you are able to configure your variables simply following the placeholders in the previous image. The only exception is for these two:
 
 - **JDBC_URL**: is a string composed in this way *jdbc:snowflake://**[ORGANIZATION]-[ACCOUNT NAME]**.snowflakecomputing.com*. Following the placeholders you can easily create your jdbc string
-- **SNOWFLAKE_ACCOUNT_LOCATOR_URL**: you can retrieve this from the specific button, highlithed in green in the image
+- **SNOWFLAKE_ACCOUNT_LOCATOR_URL**: you can retrieve this from the specific button, highlighted in green in the image
 
 Logging is handled with Logback, you can find an example `logback.xml` in the Helm chart. Customize it and pass it using the `logback.configurationFile` system property.
 
@@ -142,7 +142,7 @@ In other words, to use a custom role it's important to have a Snowflake user wit
 
 You can easily set up your own dedicated Snowflake user by following a few specific instructions.
 
-For example, you could create a custome role **'WITBOOST'** through which add needed priviliges to an existing account or to a new one. Below the commands that must be executed:
+For example, you could create a custom role **'WITBOOST'** through which add needed privileges to an existing account or to a new one. Below the commands that must be executed:
 
 ```sql
 CREATE ROLE WITBOOST; 
@@ -186,11 +186,26 @@ In case you want to use a different database, schema or view, you are free to mo
 
 ### Principals Mapper
 
-The default configuration uses an `identity` mapping strategy.
+When the `updateAcl` is queried, it requires a list of identities as parameter. This is the list of users/groups/roles that need the access.
+These identities have a meaning in the Witboost context, but might not have sense in the context of your resources (see Snowflake).
+
+For this reason, we had introduced the concept of `PrincipalsMapper` strategy, which converts the identities from the Witboost context to the one that Snowflake uses.
+
+#### Identity Mapper Strategy
+
+---
+
+In this strategy, the input is returned as output without any transformation.
 
 | Setting                              | Environment Variable                 | Default value | Allowed values       |
 |--------------------------------------|--------------------------------------|---------------|----------------------|
 | snowflake.principals-mapper.strategy | SNOWFLAKE_PRINCIPALS_MAPPER_STRATEGY | identity      | identity,table-based |
+
+The default configuration uses an `identity` mapping strategy.
+
+#### Table Based Mapper Strategy
+
+---
 
 It is possible to use a `table-based` mapping if, for example, Snowflake is not configured to use SSO. In this case the mapping table is used and is expected to be already present and filled with all the required mapping entries.
 
@@ -204,7 +219,7 @@ The following options allow you to customize the database, schema and name of th
 
 You can find a sample SQL script to create required objects [here](docs/create_mapping_table.sql). Update it before executing, if you decide to use different default values for database, schema or table name.
 
-The role used  by the provisioner must have SELECT privileges on this table.
+The role used  by the provisioner must have `SELECT` privileges on this table.
 
 ## Deploying
 
@@ -224,7 +239,7 @@ This project is available under the [Apache License, Version 2.0](https://openso
 
 Agile Lab creates value for its Clients in data-intensive environments through customizable solutions to establish performance driven processes, sustainable architectures, and automated platforms driven by data governance best practices.
 
-Since 2014 we have implemented 100+ successful Elite Data Engineering initiatives and used that experience to create Witboost: a technology agnostic, modular platform, that empowers modern enterprises to discover, elevate and productize their data both in traditional environments and on fully compliant Data mesh architectures.
+Since 2014 we have implemented 100+ successful Elite Data Engineering initiatives and used that experience to create Witboost: a technology-agnostic, modular platform, that empowers modern enterprises to discover, elevate and productize their data both in traditional environments and on fully compliant Data mesh architectures.
 
 [Contact us](https://www.agilelab.it/contacts) or follow us on:
 - [LinkedIn](https://www.linkedin.com/company/agile-lab/)

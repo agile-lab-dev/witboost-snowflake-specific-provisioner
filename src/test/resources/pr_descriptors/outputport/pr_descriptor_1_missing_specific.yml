@@ -21,7 +21,7 @@ dataProduct:
       name: Marketing-Invoice-S3-Ingestion-Data-1
       fullyQualifiedName: Marketing Invoice S3 Ingestion Data
       description: Marketing Invoice S3 Ingestion Data
-      kind: storage
+      kind: outputport
       owners:
         - group:bigdata
       infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0
@@ -30,5 +30,21 @@ dataProduct:
       platform: CDP_AWS
       technology: CDP_S3
       storageType: SQL
+      dataContract:
+        schema:
+          - name: id
+            dataType: TEXT
+            constraint: PRIMARY_KEY
+          - name: name
+            dataType: TEXT
+          - name: phone
+            dataType: NUMBER
+            constraint: NULL
+            tags:
+              - tagFQN: tag di prova
+                source: Tag
+                labelType: Manual
+                state: Confirmed
+                value: valore di prova
       tags: [ ]
 componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

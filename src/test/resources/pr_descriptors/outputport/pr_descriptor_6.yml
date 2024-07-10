@@ -79,34 +79,34 @@ dataProduct:
         schema:
           - name: date
             dataType: TEXT
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: location_key
             dataType: TEXT
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: new_confirmed
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: new_deceased
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: new_recovered
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: new_tested
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: cumulative_confirmed
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: cumulative_deceased
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: cumulative_recovered
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: cumulative_tested
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
       tags: []
       sampleData: {}
       semanticLinking: []

@@ -33,9 +33,14 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       ColumnSchemaSpec("age", DataType.NUMBER)
     )
 
-    queryHelper.createTableStatement("my-test", "your", "test_table", cols) should be(
-      "CREATE TABLE IF NOT EXISTS my-test.your.TEST_TABLE\n(\n name TEXT,\nphone_number TEXT,\nid TEXT,\nage NUMBER\n);"
-    )
+    queryHelper.createTableStatement("my-test", "your", "test_table", cols) should
+      be("""CREATE TABLE IF NOT EXISTS "my-test"."your"."TEST_TABLE"
+           |(
+           | name TEXT,
+           |phone_number TEXT,
+           |id TEXT,
+           |age NUMBER
+           |);""".stripMargin)
   }
 
   "the createViewStatement method" should "format correctly the create view statement" in {
@@ -46,9 +51,11 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       ColumnSchemaSpec("age", DataType.NUMBER)
     )
 
-    queryHelper.createViewStatement("my-test-view", "my-test", "your", "test_table", cols) should be(
-      "CREATE VIEW IF NOT EXISTS my-test.your.my-test-view AS (SELECT name,\nphone_number,\nid,\nage FROM my-test.your.test_table);"
-    )
+    queryHelper.createViewStatement("my-test-view", "my-test", "your", "test_table", cols) should
+      be("""CREATE VIEW IF NOT EXISTS "my-test"."your"."my-test-view" AS (SELECT name,
+           |phone_number,
+           |id,
+           |age FROM "my-test"."your"."test_table");""".stripMargin)
   }
 
   "buildOutputPortStatement method" should
@@ -60,9 +67,9 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
 
       res shouldBe a[Right[_, _]]
       res.foreach(script =>
-        script should be(
-          "CREATE VIEW IF NOT EXISTS TEST_AIRBYTE.PUBLIC.snowflake_view AS (SELECT id,\nname,\nphone FROM TEST_AIRBYTE.PUBLIC.snowflake_table);"
-        )
+        script should be("""CREATE VIEW IF NOT EXISTS "TEST_AIRBYTE"."PUBLIC"."snowflake_view" AS (SELECT id,
+                           |name,
+                           |phone FROM "TEST_AIRBYTE"."PUBLIC"."snowflake_table");""".stripMargin)
       )
 
     }
@@ -75,9 +82,9 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
 
     res shouldBe a[Right[_, _]]
     res.foreach(script =>
-      script should be(
-        "CREATE VIEW IF NOT EXISTS MARKETING.PUBLIC.snowflake_view AS (SELECT id,\nname,\nphone FROM MARKETING.PUBLIC.snowflake_table);"
-      )
+      script should be("""CREATE VIEW IF NOT EXISTS "MARKETING"."PUBLIC"."snowflake_view" AS (SELECT id,
+                         |name,
+                         |phone FROM "MARKETING"."PUBLIC"."snowflake_table");""".stripMargin)
     )
   }
 
@@ -89,10 +96,9 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
 
     res shouldBe a[Right[_, _]]
     res.foreach(script =>
-      script should be(
-        "CREATE VIEW IF NOT EXISTS TEST_AIRBYTE.DPOWNERTEST_1.snowflake_view AS (SELECT id,\n" + "name,\n" +
-          "phone FROM TEST_AIRBYTE.DPOWNERTEST_1.snowflake_table);"
-      )
+      script should be("""CREATE VIEW IF NOT EXISTS "TEST_AIRBYTE"."DPOWNERTEST_1"."snowflake_view" AS (SELECT id,
+                         |name,
+                         |phone FROM "TEST_AIRBYTE"."DPOWNERTEST_1"."snowflake_table");""".stripMargin)
     )
   }
 
@@ -104,10 +110,9 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
 
     res shouldBe a[Right[_, _]]
     res.foreach(script =>
-      script should be(
-        "CREATE VIEW IF NOT EXISTS MARKETING.DPOWNERTEST_1.snowflake_view AS (SELECT id,\n" + "name,\n" +
-          "phone FROM MARKETING.DPOWNERTEST_1.snowflake_table);"
-      )
+      script should be("""CREATE VIEW IF NOT EXISTS "MARKETING"."DPOWNERTEST_1"."snowflake_view" AS (SELECT id,
+                         |name,
+                         |phone FROM "MARKETING"."DPOWNERTEST_1"."snowflake_table");""".stripMargin)
     )
   }
 
@@ -120,7 +125,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
     res shouldBe a[Right[_, _]]
     res.foreach(script =>
       script should be(
-        "CREATE VIEW IF NOT EXISTS TEST_AIRBYTE.PUBLIC.snowflake_view AS (SELECT * FROM TEST_AIRBYTE.PUBLIC.snowflake_table);"
+        """CREATE VIEW IF NOT EXISTS TEST_AIRBYTE.PUBLIC.snowflake_view AS (SELECT * FROM TEST_AIRBYTE.PUBLIC.snowflake_table);"""
       )
     )
   }
@@ -133,7 +138,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val res = queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_DB)
 
       res shouldBe a[Right[_, _]]
-      res.foreach(script => script should be("CREATE DATABASE IF NOT EXISTS TEST_AIRBYTE;"))
+      res.foreach(script => script should be("""CREATE DATABASE IF NOT EXISTS "TEST_AIRBYTE";"""))
     }
 
   "buildStorageStatement method" should
@@ -144,7 +149,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val res = queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_SCHEMA)
 
       res shouldBe a[Right[_, _]]
-      res.foreach(script => script should be("CREATE SCHEMA IF NOT EXISTS TEST_AIRBYTE.PUBLIC;"))
+      res.foreach(script => script should be("""CREATE SCHEMA IF NOT EXISTS "TEST_AIRBYTE"."PUBLIC";"""))
     }
 
   "buildStorageStatement method" should
@@ -155,7 +160,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val res = queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_DB)
 
       res shouldBe a[Right[_, _]]
-      res.foreach(script => script should be("CREATE DATABASE IF NOT EXISTS MARKETING;"))
+      res.foreach(script => script should be("""CREATE DATABASE IF NOT EXISTS "MARKETING";"""))
     }
 
   "buildStorageStatement method" should
@@ -166,7 +171,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val res = queryHelper.buildStorageStatement(descriptor.toOption.get, CREATE_SCHEMA)
 
       res shouldBe a[Right[_, _]]
-      res.foreach(script => script should be("CREATE SCHEMA IF NOT EXISTS MARKETING.DPOWNERTEST_1;"))
+      res.foreach(script => script should be("""CREATE SCHEMA IF NOT EXISTS "MARKETING"."DPOWNERTEST_1";"""))
     }
 
   "buildStorageStatement method" should
@@ -179,8 +184,20 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       res shouldBe a[Right[_, _]]
       res.foreach(script =>
         script should be(List(
-          "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE1\n(\n id TEXT,\nname TEXT,\nphone NUMBER,\nCONSTRAINT table1_primary_key PRIMARY KEY (id)\n);",
-          "CREATE TABLE IF NOT EXISTS MARKETING.DPOWNERTEST_1.TABLE2\n(\n id TEXT,\nname TEXT NOT NULL,\nphone NUMBER UNIQUE,\nCONSTRAINT table2_primary_key PRIMARY KEY (id)\n);"
+          """CREATE TABLE IF NOT EXISTS "MARKETING"."DPOWNERTEST_1"."TABLE1"
+            |(
+            | id TEXT,
+            |name TEXT,
+            |phone NUMBER NOT NULL,
+            |CONSTRAINT table1_primary_key PRIMARY KEY (id)
+            |);""".stripMargin,
+          """CREATE TABLE IF NOT EXISTS "MARKETING"."DPOWNERTEST_1"."TABLE2"
+            |(
+            | id TEXT,
+            |name TEXT NOT NULL,
+            |phone NUMBER UNIQUE,
+            |CONSTRAINT table2_primary_key PRIMARY KEY (id)
+            |);""".stripMargin
         ))
       )
     }
@@ -193,7 +210,7 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       val res = queryHelper.buildStorageStatement(descriptor.toOption.get, DELETE_SCHEMA)
 
       res shouldBe a[Right[_, _]]
-      res.foreach(script => script should be("DROP SCHEMA IF EXISTS TEST_AIRBYTE.PUBLIC;"))
+      res.foreach(script => script should be("""DROP SCHEMA IF EXISTS "TEST_AIRBYTE"."PUBLIC";"""))
     }
 
   "buildStorageStatement method" should
@@ -206,8 +223,8 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       res shouldBe a[Right[_, _]]
       res.foreach(script =>
         script should be(List(
-          "DROP TABLE IF EXISTS MARKETING.DPOWNERTEST_1.TABLE1;",
-          "DROP TABLE IF EXISTS MARKETING.DPOWNERTEST_1.TABLE2;"
+          """DROP TABLE IF EXISTS "MARKETING"."DPOWNERTEST_1"."TABLE1";""",
+          """DROP TABLE IF EXISTS "MARKETING"."DPOWNERTEST_1"."TABLE2";"""
         ))
       )
     }
@@ -224,10 +241,10 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
     val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, UPDATE_TABLES, Some(schemaChanges), None)
 
     res shouldBe a[Right[_, _]]
-    res.foreach(script =>
-      script should
-        be(List("ALTER TABLE IF EXISTS TEST_AIRBYTE.PUBLIC.TABLE1\n ADD COLUMN\n NEW_COLUMN TEXT NOT NULL\n ;"))
-    )
+    res.foreach(script => script should be(List("""ALTER TABLE IF EXISTS "TEST_AIRBYTE"."PUBLIC"."TABLE1"
+                                                  | ADD COLUMN
+                                                  | NEW_COLUMN TEXT NOT NULL
+                                                  | ;""".stripMargin)))
   }
 
   "buildStorageStatement method" should "correctly build the alter tables statement when a column is removed" in {
@@ -242,9 +259,9 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
     val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, UPDATE_TABLES, Some(schemaChanges), None)
 
     res shouldBe a[Right[_, _]]
-    res.foreach(script =>
-      script should be(List("ALTER TABLE IF EXISTS TEST_AIRBYTE.PUBLIC.TABLE1\n DROP COLUMN DATE\n ;"))
-    )
+    res.foreach(script => script should be(List("""ALTER TABLE IF EXISTS "TEST_AIRBYTE"."PUBLIC"."TABLE1"
+                                                  | DROP COLUMN DATE
+                                                  | ;""".stripMargin)))
   }
 
   "buildStorageStatement method" should "correctly build the alter tables statement when a constraint changed" in {
@@ -266,9 +283,9 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
     val res = queryHelper.buildMultipleStatement(descriptor.toOption.get, UPDATE_TABLES, Some(schemaChanges), None)
 
     res shouldBe a[Right[_, _]]
-    res.foreach(script =>
-      script should be(List("ALTER TABLE IF EXISTS TEST_AIRBYTE.PUBLIC.TABLE1\n ALTER COLUMN PHONE SET NOT NULL\n;"))
-    )
+    res.foreach(script => script should be(List("""ALTER TABLE IF EXISTS "TEST_AIRBYTE"."PUBLIC"."TABLE1"
+                                                  | ALTER COLUMN PHONE SET NOT NULL
+                                                  |;""".stripMargin)))
   }
 
   "buildStorageStatement method" should

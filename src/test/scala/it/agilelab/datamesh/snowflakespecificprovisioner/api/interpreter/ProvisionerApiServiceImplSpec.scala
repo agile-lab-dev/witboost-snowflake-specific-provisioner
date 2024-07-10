@@ -48,14 +48,14 @@ class ProvisionerApiServiceImplSpec
   val marshaller = new ProvisionerApiMarshallerImpl
   import marshaller._
 
-  val snowflakeManager = mock[SnowflakeManager]
+  val snowflakeManager: SnowflakeManager = mock[SnowflakeManager]
 
   val api = new SpecificProvisionerApi(
     new ProvisionerApiServiceImpl(snowflakeManager),
     new ProvisionerApiMarshallerImpl,
     new ExtractContexts {
 
-      override def tapply(f: (Tuple1[Seq[(String, String)]]) => Route): Route = { (rc: RequestContext) =>
+      override def tapply(f: Tuple1[Seq[(String, String)]] => Route): Route = { (rc: RequestContext) =>
         f(Tuple1(Seq.empty))(rc)
       }
     }

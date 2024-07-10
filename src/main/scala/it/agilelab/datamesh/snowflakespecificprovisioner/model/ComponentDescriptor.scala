@@ -1,80 +1,108 @@
 package it.agilelab.datamesh.snowflakespecificprovisioner.model
 
-import cats.implicits._
-import io.circe.{ACursor, HCursor, Json}
+import io.circe.generic.semiauto.deriveDecoder
+import io.circe.{Decoder, DecodingFailure, HCursor, Json}
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{ColumnSchemaSpec, TableSpec}
 import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.ParseError
 
-final case class ComponentDescriptor(id: String, environment: String, header: Json, specific: Json)
-    extends YamlPrinter {
-  override def toString: String = s"${printAsYaml(header)}${printAsYaml(specific)}"
-  def toJson: Json              = header.deepMerge(Json.fromFields(List((Constants.SPECIFIC_FIELD, specific))))
+sealed trait Specific
 
-  def getName: Either[ParseError, String] = header.hcursor.downField(Constants.NAME_FIELD).as[String].left
-    .map(_ => ParseError(Some(header.toString), Some(Constants.NAME_FIELD), List(s"cannot parse Component name")))
-
-  def getKind: Either[ParseError, String] = header.hcursor.downField(Constants.KIND_FIELD).as[String].left
-    .map(_ => ParseError(Some(header.toString), Some(Constants.KIND_FIELD), List(s"cannot parse Component kind")))
-
-  def getInfrastructureTemplateId: Either[ParseError, String] = header.hcursor
-    .downField(Constants.INFRASTRUCTURE_TEMPLATE_ID_FIELD).as[String].left.map(_ =>
-      ParseError(
-        Some(header.toString),
-        Some(Constants.INFRASTRUCTURE_TEMPLATE_ID_FIELD),
-        List(s"cannot parse Component infrastructureTemplateId")
-      )
-    )
-
-  def getUseCaseTemplateId: Either[ParseError, Option[String]] = {
-    val cursor: ACursor = header.hcursor.downField(Constants.USE_CASE_TEMPLATE_ID_FIELD)
-    cursor.focus.map(_.as[String]).sequence
-  }.left.map(_ =>
-    ParseError(
-      Some(header.toString),
-      Some(Constants.USE_CASE_TEMPLATE_ID_FIELD),
-      List(s"cannot parse Component useCaseTemplateId")
-    )
-  )
+sealed trait ComponentDescriptor {
+  def kind: String
 }
 
 object ComponentDescriptor {
+  case class DataContract(schema: Seq[ColumnSchemaSpec])
 
-  def getId(hcursor: HCursor): Either[ParseError, String] = hcursor.downField(Constants.ID_FIELD).as[String].left
-    .map(_ => ParseError(Some(hcursor.value.toString), Some(Constants.ID_FIELD), List(s"cannot parse Component id")))
+  implicit val decodeDataContract: Decoder[DataContract] = deriveDecoder[DataContract]
 
-  private def getHeader(hcursor: HCursor): Either[ParseError, Json] = hcursor.keys.fold(None: Option[Json]) { keys =>
-    val filteredKeys: Seq[String]                   = keys.toList.filter(key => !(key === Constants.SPECIFIC_FIELD))
-    val dpHeaderFields: Option[Seq[(String, Json)]] = filteredKeys.map(key => hcursor.downField(key).focus)
-      .traverse(identity).map(filteredKeys.zip)
-    dpHeaderFields.map(Json.fromFields)
-  } match {
-    case Some(x) => Right(x)
-    case None    => Left(
-        ParseError(Some(hcursor.value.toString), Some(Constants.SPECIFIC_FIELD), List(s"cannot parse Component header"))
-      )
-  }
+  case class SpecificOutputPort(
+      database: Option[String],
+      schema: Option[String],
+      viewName: String,
+      tableName: String,
+      tags: Option[List[Map[String, String]]],
+      customView: Option[String]
+  ) extends Specific
 
-  private def getSpecific(hcursor: HCursor): Either[ParseError, Json] =
-    hcursor.downField(Constants.SPECIFIC_FIELD).focus match {
-      case None    => Left(ParseError(
-          Some(hcursor.value.toString),
+  implicit val decodeSpecificOutputPort: Decoder[SpecificOutputPort] = deriveDecoder[SpecificOutputPort]
+
+  case class OutputPort(
+      id: String,
+      override val kind: String,
+      name: String,
+      description: String,
+      dataContract: DataContract,
+      specific: SpecificOutputPort
+  ) extends ComponentDescriptor
+
+  implicit val decodeOutputPort: Decoder[OutputPort] = deriveDecoder[OutputPort]
+
+  case class SpecificStorageArea(database: Option[String], schema: Option[String], tables: Seq[TableSpec])
+      extends Specific
+
+  implicit val decodeSpecificStorageArea: Decoder[SpecificStorageArea] = deriveDecoder[SpecificStorageArea]
+
+  case class StorageArea(
+      id: String,
+      override val kind: String,
+      name: String,
+      description: String,
+      specific: SpecificStorageArea
+  ) extends ComponentDescriptor
+
+  implicit val decodeStorageArea: Decoder[StorageArea] = deriveDecoder[StorageArea]
+
+  case class Workload(id: String, override val kind: String, name: String, description: String, specific: Json)
+      extends ComponentDescriptor
+
+  implicit val decodeWorkload: Decoder[Workload] = deriveDecoder[Workload]
+
+  def apply(component: Json): Either[Throwable, ComponentDescriptor] = component
+    .as[ComponentDescriptor](decodeComponent).flatMap {
+      case storage @ StorageArea(id, _, _, _, specific)                 =>
+        val databaseStorageArea = specific.database.forall(matchPattern)
+        val schemaStorageArea   = specific.schema.forall(matchPattern)
+        val tablesStorageArea   = specific.tables.forall { table =>
+          matchPattern(table.tableName) && table.schema.forall(column => matchPattern(column.name))
+        }
+        if (databaseStorageArea && schemaStorageArea && tablesStorageArea) { Right(storage) }
+        else Left(ParseError(
+          Some(specific.toString),
           Some(Constants.SPECIFIC_FIELD),
-          List(s"cannot parse Component specific")
+          List(s"The inputs provided as part of $id are not conforming to the required pattern!")
         ))
-      case Some(x) => Right(x)
+      case outputPort @ OutputPort(id, _, _, _, dataContract, specific) =>
+        val databaseOutputPort     = specific.database.forall(matchPattern)
+        val schemaOutputPort       = specific.schema.forall(matchPattern)
+        val dataContractOutputPort = dataContract.schema.forall(column => matchPattern(column.name))
+        if (
+          databaseOutputPort && schemaOutputPort && matchPattern(specific.viewName) && dataContractOutputPort &&
+          matchPattern(specific.tableName)
+        ) { Right(outputPort) }
+        else Left(ParseError(
+          Some(specific.toString),
+          Some(Constants.SPECIFIC_FIELD),
+          List(s"The inputs provided as part of $id are not conforming to the required pattern!")
+        ))
+      case workload: Workload                                           => Right(workload)
+      case _ => Left(ParseError(Some("Invalid Component type!")))
     }
 
-  def apply(environment: String, component: Json): Either[ParseError, ComponentDescriptor] = {
-    val hcursor                                                 = component.hcursor
-    val maybeComponent: Either[ParseError, ComponentDescriptor] = for {
-      header   <- getHeader(hcursor)
-      id       <- getId(hcursor)
-      specific <- getSpecific(hcursor)
-    } yield ComponentDescriptor(id, environment, header, specific)
-
-    maybeComponent match {
-      case Left(errorMsg)   => Left(errorMsg)
-      case Right(component) => Right(component)
-    }
+  private def matchPattern(inputString: String): Boolean = {
+    val regexPattern = "^[a-zA-Z_][a-zA-Z\\d-_ ]+$".r
+    regexPattern.matches(inputString)
   }
+
+  implicit def decodeComponent: Decoder[ComponentDescriptor] = (cursor: HCursor) =>
+    cursor.downField(Constants.KIND_FIELD).as[String].flatMap {
+      case Constants.STORAGE     => Decoder[StorageArea].apply(cursor).left
+          .map(e => DecodingFailure(s"Failed to decode StorageArea: ${e.getMessage()}", e.history))
+      case Constants.OUTPUT_PORT => Decoder[OutputPort].apply(cursor).left
+          .map(e => DecodingFailure(s"Failed to decode OutputPort: ${e.getMessage()}", e.history))
+      case Constants.WORKLOAD    => Decoder[Workload].apply(cursor).left
+          .map(e => DecodingFailure(s"Failed to decode Workload: ${e.getMessage()}", e.history))
+      case kind                  => Left(DecodingFailure(s"$kind is not a valid component type!", cursor.history))
+    }
 }

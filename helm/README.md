@@ -16,6 +16,7 @@ A Helm chart for Kubernetes
 | image.tag | string | `"latest"` | Image tag |
 | livenessProbe | object | `{}` | liveliness probe spec |
 | logbackOverride | string | `nil` | This configuration allows you to override the logback.xml file |
+| principalsMappingStrategy | string | `"identity"` | Snowflake principals mapping strategy. It can be "identity" or "table-based" |
 | readinessProbe | object | `{}` | readiness probe spec |
 | resources | object | `{}` | resources spec |
 | securityContext | object | `{"allowPrivilegeEscalation":false,"runAsNonRoot":true,"runAsUser":1001}` | security context spec |

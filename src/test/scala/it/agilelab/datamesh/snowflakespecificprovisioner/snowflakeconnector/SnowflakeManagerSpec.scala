@@ -119,7 +119,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
     val res              = snowflakeManager.validateDescriptor(prd)
 
     res.isRight shouldBe false
-    res.left.foreach(value => value.problems.head should (include("jhon").and(include("snowflake_view"))))
+    res.left.foreach(value => value.problems.head should include("jhon").and(include("snowflake_view")))
 
   }
 
@@ -143,7 +143,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
     val res              = snowflakeManager.validateDescriptor(prd)
 
     res.isLeft shouldBe true
-    res.left.foreach(value => value.problems.head should (include("Error while retrieving the view name")))
+    res.left.foreach(value => value.problems.head should include("Error while retrieving the view name"))
 
   }
 
@@ -158,54 +158,45 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
 
   }
 
-  it should "fail to validate an outputport descriptor without dataContract field" in {
+  it should "fail to validate an outputport descriptor with empty schema" in {
 
-    val yaml             = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_9_no_data_contract.yml")
+    val yaml             = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_11_empty_schema_array.yml")
     val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
     val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor, principalsMapper)
 
     val res1 = snowflakeManager.validateDescriptor(prd)
     res1.isRight shouldBe true
+
+    val res2 = snowflakeManager.validateSpecificFields(prd)
+
+    res2.isLeft shouldBe true
+    res2.left.foreach(value => value.problems.head should include("Data Contract schema is empty!"))
+  }
+
+  it should "fail to validate a storage descriptor with empty tables" in {
+
+    val yaml             = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_10_empty_tables_list.yml")
+    val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
+    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor, principalsMapper)
 
     val res2 = snowflakeManager.validateSpecificFields(prd)
 
     res2.isLeft shouldBe true
     res2.left.foreach(value =>
-      value.problems.head should (include("Attempt to decode value on failed cursor").and(include("dataContract")))
+      value.problems.head should include("The provided request does not contain tables since it is empty!")
     )
   }
 
-  it should "fail to validate a storage descriptor without tables field" in {
+  it should "fail to validate a storage descriptor with different component kind" in {
 
-    val yaml             = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_7_no_tables.yml")
+    val yaml             = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_11_different_kind.yml")
     val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
     val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor, principalsMapper)
-
-    val res1 = snowflakeManager.validateDescriptor(prd)
-    res1.isRight shouldBe true
 
     val res2 = snowflakeManager.validateSpecificFields(prd)
 
     res2.isLeft shouldBe true
-    res2.left.foreach(value =>
-      value.problems.head should (include("Attempt to decode value on failed cursor").and(include("tables")))
-    )
-  }
-
-  it should "fail to validate a descriptor with a wrong kind" in {
-
-    val yaml             = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_8_wrong_kind.yml")
-    val prd              = ProvisioningRequestDescriptor(yaml).toOption.get
-    val snowflakeManager = new SnowflakeManager(new SnowflakeExecutor, principalsMapper)
-
-    val res1 = snowflakeManager.validateDescriptor(prd)
-    res1.isRight shouldBe true
-
-    val res2 = snowflakeManager.validateSpecificFields(prd)
-
-    res2.isLeft shouldBe true
-    res2.left
-      .foreach(value => value.problems.head should (include("The specified kind").and(include("is not supported"))))
+    res2.left.foreach(value => value.problems.head should include("The specified kind workload is not supported"))
   }
 
   it should "successfully retrieve information schema of the tables from Snowflake" in {

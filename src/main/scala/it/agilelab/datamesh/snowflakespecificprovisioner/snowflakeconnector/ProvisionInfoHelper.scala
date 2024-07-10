@@ -1,15 +1,14 @@
 package it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector
 
 import com.typesafe.scalalogging.LazyLogging
-import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
-import io.circe.Json
-import it.agilelab.datamesh.snowflakespecificprovisioner.model.ComponentDescriptor
+import it.agilelab.datamesh.snowflakespecificprovisioner.model.{ProvisioningRequestDescriptor, Specific}
 import it.agilelab.datamesh.snowflakespecificprovisioner.api.dto.{
   OutputPortDetailsType,
   SnowflakeOutputPortDetailsDto,
   SnowflakeOutputPortDetailsLinkType,
   SnowflakeOutputPortDetailsStringType
 }
+import it.agilelab.datamesh.snowflakespecificprovisioner.model.ComponentDescriptor.OutputPort
 import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfigurationWrapper
 
 class ProvisionInfoHelper(config: ApplicationConfigurationWrapper) extends LazyLogging {
@@ -17,39 +16,45 @@ class ProvisionInfoHelper(config: ApplicationConfigurationWrapper) extends LazyL
 
   def getProvisioningInfo(
       descriptor: ProvisioningRequestDescriptor
-  ): Either[SnowflakeError, SnowflakeOutputPortDetailsDto] =
-    for {
-      component <- queryBuilder.getComponent(descriptor)
-      dbName       = getDatabaseNameInfo(descriptor, component.specific)
-      schemaName   = getSchemaInfo(descriptor, component.specific)
-      jdbcUrl      = getJdbcInfo()
-      viewsName    = getViewsInfo(component)
-      snowflakeUrl = getSnowflakeUrlInfo()
-    } yield SnowflakeOutputPortDetailsDto(Map(
-      "aString1" -> SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "Database Name", dbName),
-      "aString2" -> SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "Schema Name", schemaName),
-      "aString3" ->
-        SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "Database Connection", jdbcUrl),
-      "aString4" -> SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "View", viewsName),
-      "aLink5"   -> SnowflakeOutputPortDetailsLinkType(
-        OutputPortDetailsType.LinkType,
-        "Snowflake Url",
-        "View on Snowflake",
-        snowflakeUrl
-      )
-    ))
+  ): Either[SnowflakeError, SnowflakeOutputPortDetailsDto] = queryBuilder.getComponent(descriptor) match {
+    case Right(component) => component match {
+        case outputPort: OutputPort =>
+          val dbName       = getDatabaseNameInfo(descriptor, outputPort.specific)
+          val schemaName   = getSchemaInfo(descriptor, outputPort.specific)
+          val jdbcUrl      = getJdbcInfo
+          val viewsName    = getViewsInfo(outputPort)
+          val snowflakeUrl = getSnowflakeUrlInfo()
+          Right(SnowflakeOutputPortDetailsDto(Map(
+            "aString1" ->
+              SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "Database Name", dbName),
+            "aString2" ->
+              SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "Schema Name", schemaName),
+            "aString3" ->
+              SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "Database Connection", jdbcUrl),
+            "aString4" -> SnowflakeOutputPortDetailsStringType(OutputPortDetailsType.StringType, "View", viewsName),
+            "aLink5"   -> SnowflakeOutputPortDetailsLinkType(
+              OutputPortDetailsType.LinkType,
+              "Snowflake Url",
+              "View on Snowflake",
+              snowflakeUrl
+            )
+          )))
+        case _                      => Left(ParseError(Option("Invalid Component type!")))
+      }
+    case Left(error)      => Left(error)
+  }
 
-  def getDatabaseNameInfo(descriptor: ProvisioningRequestDescriptor, specific: Json): String =
+  def getDatabaseNameInfo(descriptor: ProvisioningRequestDescriptor, specific: Specific): String =
     queryBuilder.getDatabaseName(descriptor, specific) match { case database: String => database }
 
-  def getSchemaInfo(descriptor: ProvisioningRequestDescriptor, specific: Json): String =
+  def getSchemaInfo(descriptor: ProvisioningRequestDescriptor, specific: Specific): String =
     queryBuilder.getSchemaName(descriptor, specific) match { case schemaName: String => schemaName }
 
-  def getJdbcInfo(): String = stripCredentialsFromURL(this.config.jdbcUrl)
+  def getJdbcInfo: String = stripCredentialsFromURL(this.config.jdbcUrl)
 
   def getSnowflakeUrlInfo(): String = this.config.accountLocatorUrl
 
-  def getViewsInfo(descriptor: ComponentDescriptor): String = queryBuilder.getViewName(descriptor) match {
+  def getViewsInfo(outputPort: OutputPort): String = queryBuilder.getViewName(outputPort) match {
     case Right(viewName) => viewName
     case Left(_)         => ""
   }

@@ -50,7 +50,7 @@ dataProduct:
               dataType: TEXT
             - name: phone
               dataType: NUMBER
-              constraint: NULL
+              constraint: NOT_NULL
           - tableName: table2
             schema:
               - name: id

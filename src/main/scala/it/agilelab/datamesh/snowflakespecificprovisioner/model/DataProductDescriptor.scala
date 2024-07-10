@@ -51,10 +51,7 @@ object DataProductDescriptor {
         ))
     }
 
-  private def getComponentsDescriptor(
-      environment: String,
-      header: Json
-  ): Either[ParseError, List[ComponentDescriptor]] = {
+  private def getComponentsDescriptor(header: Json): Either[ParseError, List[ComponentDescriptor]] = {
     val componentsHCursor = header.hcursor.downField(Constants.COMPONENTS_FIELD)
     componentsHCursor.values.map(_.toList)
   } match {
@@ -64,8 +61,20 @@ object DataProductDescriptor {
         List(s"cannot parse Data Product components")
       ))
     case Some(jsonList) =>
-      val result = jsonList.map(c => ComponentDescriptor(environment, c))
-      result.collectFirst { case Left(error) => error }.toLeft(result.collect { case Right(r) => r })
+      val result               = jsonList.map(c => ComponentDescriptor(c))
+      val (errorList, success) = result.partitionMap {
+        case Left(error: ParseError) => Left(error)
+        case Left(throwable)         => Left(ParseError(None, None, List(throwable.getMessage)))
+        case Right(value)            => Right(value)
+      }
+      if (errorList.nonEmpty) {
+        Left(ParseError(
+          errorList.flatMap(_.input).headOption,
+          None,
+          errorList.flatMap(_.problems),
+          solutions = List("Check if the component is well-formed and contains the required fields!")
+        ))
+      } else { Right(success) }
   }
 
   private def getDomain(header: Json): Either[ParseError, String] = header.hcursor.downField("domain").as[String].left
@@ -92,7 +101,7 @@ object DataProductDescriptor {
         name        <- getName(header)
         version     <- getVersion(header)
         dpOwner     <- getDataProductOwner(header)
-        components  <- getComponentsDescriptor(environment, header)
+        components  <- getComponentsDescriptor(header)
       } yield DataProductDescriptor(id, name, version, environment, domain, dpOwner, header, components)
   }
 }

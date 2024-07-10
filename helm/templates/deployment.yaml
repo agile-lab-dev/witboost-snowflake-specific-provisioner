@@ -100,6 +100,7 @@ spec:
                 secretKeyRef:
                   name: witboost-addons-secrets
                   key: SNOWFLAKE_PRINCIPALS_MAPPER_STRATEGY
+            {{- if not (eq .Values.principalsMappingStrategy "identity") }}
             - name: SNOWFLAKE_PRINCIPALS_MAPPER_TABLE_BASED_DATABASE
               valueFrom:
                 secretKeyRef:
@@ -115,6 +116,22 @@ spec:
                 secretKeyRef:
                   name: witboost-addons-secrets
                   key: SNOWFLAKE_PRINCIPALS_MAPPER_TABLE_BASED_TABLE
+            {{- end }}
+            - name: SNOWFLAKE_TAG_REFERENCES_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-addons-secrets
+                  key: SNOWFLAKE_TAG_REFERENCES_DATABASE
+            - name: SNOWFLAKE_TAG_REFERENCES_SCHEMA
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-addons-secrets
+                  key: SNOWFLAKE_TAG_REFERENCES_SCHEMA
+            - name: SNOWFLAKE_TAG_REFERENCES_VIEW
+              valueFrom:
+                secretKeyRef:
+                  name: witboost-addons-secrets
+                  key: SNOWFLAKE_TAG_REFERENCES_VIEW
           volumeMounts:
             - name: config
               mountPath: /opt/docker/etc/configs

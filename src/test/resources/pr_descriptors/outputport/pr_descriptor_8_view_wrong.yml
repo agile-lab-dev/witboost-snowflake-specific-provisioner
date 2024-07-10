@@ -79,34 +79,34 @@ dataProduct:
         schema:
           - name: date
             dataType: TEXT
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: location_key
             dataType: TEXT
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: new_confirmed
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: new_deceased
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: new_recovered
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: new_tested
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: cumulative_confirmed
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: cumulative_deceased
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: cumulative_recovered
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
           - name: cumulative_tested
             dataType: NUMBER
-            constraint: NO CONSTRAINT
+            constraint: NOT_NULL
       tags: []
       sampleData: {}
       semanticLinking: []
@@ -114,6 +114,7 @@ dataProduct:
         database: test
         schema: test
         tableName: GOOGLE_COVID_DATASET
+        viewName: test_view
         customView: CREATE VIEW IF NOT EXISTS 4 AS (SELECT * FROM TEST_AIRBYTE.PUBLIC.snowflake_table);
     - kind: workload
       id: urn:dmb:cmp:finance:airflow-end-to-end-test:0:snowflake-sql-workload

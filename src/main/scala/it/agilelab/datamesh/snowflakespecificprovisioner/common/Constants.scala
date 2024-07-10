@@ -13,4 +13,5 @@ object Constants {
   val COMPONENT_ID_TO_PROVISION_FIELD  = "componentIdToProvision"
   val STORAGE                          = "storage"
   val OUTPUT_PORT                      = "outputport"
+  val WORKLOAD                         = "workload"
 }

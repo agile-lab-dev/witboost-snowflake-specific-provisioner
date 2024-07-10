@@ -60,7 +60,8 @@ class DescriptorParserSpec extends AnyFlatSpec {
 
       val dp = ProvisioningRequestDescriptor(yaml)
 
-      dp.left.value.problems should contain("cannot parse Component specific")
+      dp.left.value.problems should
+        contain("Failed to decode OutputPort: Missing required field: DownField(specific): DownField(specific)")
 
     }
 
@@ -90,6 +91,28 @@ class DescriptorParserSpec extends AnyFlatSpec {
 
     backDpDescr shouldBe a[Right[_, _]]
     backDpDescr.foreach(backDpDescr => dpDescr should be(backDpDescr))
+  }
+
+  "Parsing a descriptor which contains an inappropriate field in Storage Area Descriptor" should "return a Left" in {
+
+    val yaml = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_12_sql_injected_field.yml")
+
+    val prDescr = ProvisioningRequestDescriptor(yaml)
+
+    prDescr.left.value.problems should contain(
+      "The inputs provided as part of domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1 are not conforming to the required pattern!"
+    )
+  }
+
+  "Parsing a descriptor which contains an inappropriate field in Output Port Descriptor" should "return a Left" in {
+
+    val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_12_sql_injected_table_name.yml")
+
+    val prDescr = ProvisioningRequestDescriptor(yaml)
+
+    prDescr.left.value.problems should contain(
+      "The inputs provided as part of domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1 are not conforming to the required pattern!"
+    )
   }
 
 }

@@ -1,10 +1,10 @@
 dataProduct:
-  name: DpOwnerTest
+  name: Marketing-Invoice-1
   environment: dev
   description: Dataproduct invoice
   dataProductOwner: group:bigdata
   dataProductOwnerDisplayName: Group BigData
-  domain: marketing
+  domain: domain:marketing
   kind: dataproduct
   email: contact@example.com
   version: 1.0.0
@@ -21,7 +21,7 @@ dataProduct:
       name: Marketing-Invoice-S3-Ingestion-Data-1
       fullyQualifiedName: Marketing Invoice S3 Ingestion Data
       description: Marketing Invoice S3 Ingestion Data
-      kind: storage
+      kind: outputport
       owners:
         - group:bigdata
       infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0
@@ -30,28 +30,32 @@ dataProduct:
       platform: CDP_AWS
       technology: CDP_S3
       storageType: SQL
+      dataContract:
+        schema:
+          - name: id
+            dataType: TEXT
+            constraint: PRIMARY_KEY
+          - name: name
+            dataType: TEXT
+          - name: phone
+            dataType: NUMBER
+            constraint: NOT_NULL
+            tags:
+              - tagFQN: tag di prova
+                source: Tag
+                labelType: Manual
+                state: Confirmed
+                value: valore di prova
       tags: [ ]
       specific:
-        tables:
-          - tableName: table1
-            schema:
-            - name: id
-              dataType: TEXT
-              constraint: PRIMARY_KEY
-            - name: name
-              dataType: TEXT
-            - name: phone
-              dataType: NUMBER
-              constraint: NOT_NULL
-          - tableName: table2
-            schema:
-              - name: id
-                dataType: TEXT
-                constraint: PRIMARY_KEY
-              - name: name
-                dataType: TEXT
-                constraint: NOT_NULL
-              - name: phone
-                dataType: NUMBER
-                constraint: UNIQUE
+        database: TEST_AIRBYTE
+        schema: PUBLIC
+        viewName: snowflake_view
+        tableName: test' --DROP TABLE test_table;
+        tags:
+          - tagFQN: tag view
+            source: Tag
+            labelType: Manual
+            state: Confirmed
+            value: valore di prova
 componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

@@ -26,7 +26,7 @@ class ProvisionInfoHelperTest extends AnyFlatSpec with Matchers with MockFactory
 
     val yaml       = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_6.yml")
     val descriptor = ProvisioningRequestDescriptor(yaml)
-    val res        = provisionInfoHelper.getProvisioningInfo(descriptor.toOption.get);
+    val res        = provisionInfoHelper.getProvisioningInfo(descriptor.toOption.get)
     res shouldBe a[Right[_, _]]
     res.toOption.get.outputPortDetailItems should have size 5
 
@@ -56,7 +56,7 @@ class ProvisionInfoHelperTest extends AnyFlatSpec with Matchers with MockFactory
     (() => mockConfig.jdbcUrl).expects().returning(
       "jdbc:snowflake://myaccount.snowflakecomputing.com/?user=myuser&password=mypassword&warehouse=mywh&db=mydb"
     )
-    val res = provisionInfoHelper.getJdbcInfo();
+    val res = provisionInfoHelper.getJdbcInfo
     res shouldEqual "jdbc:snowflake://myaccount.snowflakecomputing.com/?warehouse=mywh&db=mydb"
   }
 

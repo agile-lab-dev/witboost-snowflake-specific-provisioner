@@ -2,8 +2,17 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector
 
 import cats.data.NonEmptyList
 import com.typesafe.scalalogging.LazyLogging
-import io.circe.Json
-import it.agilelab.datamesh.snowflakespecificprovisioner.model.{ComponentDescriptor, ProvisioningRequestDescriptor}
+import it.agilelab.datamesh.snowflakespecificprovisioner.model.ComponentDescriptor.{
+  OutputPort,
+  SpecificOutputPort,
+  SpecificStorageArea,
+  StorageArea
+}
+import it.agilelab.datamesh.snowflakespecificprovisioner.model.{
+  ComponentDescriptor,
+  ProvisioningRequestDescriptor,
+  Specific
+}
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.DataType.DataType
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{
   ColumnSchemaSpec,
@@ -50,8 +59,11 @@ class QueryHelper extends LazyLogging {
   ): Either[SnowflakeError, String] = {
     logger.info("Starting building storage statement")
     for {
-      component <- getComponent(descriptor)
-      dbName     = getDatabaseName(descriptor, component.specific)
+      component <- getComponent(descriptor).flatMap {
+        case storageArea: StorageArea => Right(storageArea)
+        case _                        => Left(ParseError(Some("Component to provision is not a storage area!")))
+      }
+      dbName = getDatabaseName(descriptor, component.specific)
       schemaName = getSchemaName(descriptor, component.specific)
     } yield operation match {
       case CREATE_DB     => Right(createDatabaseStatement(dbName))
@@ -65,20 +77,23 @@ class QueryHelper extends LazyLogging {
       descriptor: ProvisioningRequestDescriptor,
       operation: OperationType,
       schemaChanges: Option[List[SchemaChanges]],
-      existingComunTags: Option[List[TableSpec]]
+      existingColumnTags: Option[List[TableSpec]]
   ): Either[SnowflakeError, Seq[String]] = {
     logger.info("Starting building multiple statements")
     val result =
       for {
-        component <- getComponent(descriptor)
-        dbName     = getDatabaseName(descriptor, component.specific)
+        component <- getComponent(descriptor).flatMap {
+          case storageArea: StorageArea => Right(storageArea)
+          case _                        => Left(ParseError(Some("Invalid component type!")))
+        }
+        dbName = getDatabaseName(descriptor, component.specific)
         schemaName = getSchemaName(descriptor, component.specific)
         tables <- getTables(component)
       } yield operation match {
         case CREATE_TABLES => Right(createTablesStatement(dbName, schemaName, tables))
         case UPDATE_TABLES => updateTablesStatement(dbName, schemaName, tables, schemaChanges.getOrElse(List.empty))
         case CREATE_TAGS   =>
-          createStorageTagStatements(dbName, schemaName, tables, existingComunTags.getOrElse(List.empty))
+          createStorageTagStatements(dbName, schemaName, tables, existingColumnTags.getOrElse(List.empty))
         case DELETE_TABLES => Right(deleteTablesStatement(dbName, schemaName, tables))
         case unsupportedOp => Left(UnsupportedOperationError(unsupportedOp))
       }
@@ -94,13 +109,16 @@ class QueryHelper extends LazyLogging {
   ): Either[SnowflakeError, String] = {
     logger.info("Starting building output port statement")
     for {
-      component <- getComponent(descriptor)
+      component <- getComponent(descriptor).flatMap {
+        case outputPort: OutputPort => Right(outputPort)
+        case _                      => Left(ParseError(Some("Invalid component type!")))
+      }
       customViewStatement = getCustomViewStatement(component)
-      dbName              = getCustomDatabaseName(customViewStatement) match {
+      dbName     = getCustomDatabaseName(customViewStatement) match {
         case Some(customDbName) => customDbName
         case _                  => getDatabaseName(descriptor, component.specific)
       }
-      schemaName          = getCustomSchemaName(customViewStatement) match {
+      schemaName = getCustomSchemaName(customViewStatement) match {
         case Some(customSchemaName) => customSchemaName
         case _                      => getSchemaName(descriptor, component.specific)
       }
@@ -108,7 +126,7 @@ class QueryHelper extends LazyLogging {
         case Some(customViewName) => Right(customViewName)
         case _                    => getViewName(component)
       }
-      roleName            = buildRoleName(dbName, schemaName, viewName)
+      roleName   = buildRoleName(dbName, schemaName, viewName)
       tableName <- getTableName(component)
       schema    <- getTableSchema(component)
     } yield operation match {
@@ -144,13 +162,16 @@ class QueryHelper extends LazyLogging {
   ): Either[SnowflakeError, Seq[String]] = {
     logger.info("Starting building output port statement")
     for {
-      component <- getComponent(descriptor)
+      component <- getComponent(descriptor).flatMap {
+        case outputPort: OutputPort => Right(outputPort)
+        case _                      => Left(ParseError(Some("Invalid component type!")))
+      }
       customViewStatement = getCustomViewStatement(component)
-      dbName              = getCustomDatabaseName(customViewStatement) match {
+      dbName        = getCustomDatabaseName(customViewStatement) match {
         case Some(customDbName) => customDbName
         case _                  => getDatabaseName(descriptor, component.specific)
       }
-      schemaName          = getCustomSchemaName(customViewStatement) match {
+      schemaName    = getCustomSchemaName(customViewStatement) match {
         case Some(customSchemaName) => customSchemaName
         case _                      => getSchemaName(descriptor, component.specific)
       }
@@ -159,7 +180,7 @@ class QueryHelper extends LazyLogging {
         case _                    => getViewName(component)
       }
       schema <- getTableSchema(component)
-      componentTags       = getComponentTags(component)
+      componentTags = getComponentTags(component)
     } yield operation match {
       case CREATE_TAGS => Right(createOutputportTagStatement(
           dbName,
@@ -179,13 +200,16 @@ class QueryHelper extends LazyLogging {
   ): Either[SnowflakeError, Seq[String]] = {
     logger.info("Starting building refs statements")
     for {
-      component <- getComponent(descriptor)
+      component <- getComponent(descriptor).flatMap {
+        case outputPort: OutputPort => Right(outputPort)
+        case _                      => Left(ParseError(Some("Invalid component type!")))
+      }
       customViewStatement = getCustomViewStatement(component)
-      dbName              = getCustomDatabaseName(customViewStatement) match {
+      dbName     = getCustomDatabaseName(customViewStatement) match {
         case Some(customDbName) => customDbName
         case _                  => getDatabaseName(descriptor, component.specific)
       }
-      schemaName          = getCustomSchemaName(customViewStatement) match {
+      schemaName = getCustomSchemaName(customViewStatement) match {
         case Some(customSchemaName) => customSchemaName
         case _                      => getSchemaName(descriptor, component.specific)
       }
@@ -193,7 +217,7 @@ class QueryHelper extends LazyLogging {
         case Some(customViewName) => Right(customViewName)
         case _                    => getViewName(component)
       }
-      roleName            = buildRoleName(dbName, schemaName, viewName)
+      roleName   = buildRoleName(dbName, schemaName, viewName)
     } yield operation match {
       case ASSIGN_ROLE   => Right(assignRoleToUserStatement(roleName, refs))
       case unsupportedOp => Left(UnsupportedOperationError(unsupportedOp))
@@ -201,13 +225,14 @@ class QueryHelper extends LazyLogging {
   }.flatten
 
   def describeView(dbName: String, schemaName: String, viewName: String): String =
-    s"SELECT * FROM $dbName.$schemaName.$viewName"
+    s"""SELECT * FROM "$dbName"."$schemaName"."$viewName""""
 
-  def createDatabaseStatement(dbName: String) = s"CREATE DATABASE IF NOT EXISTS $dbName;"
+  def createDatabaseStatement(dbName: String) = s"""CREATE DATABASE IF NOT EXISTS "$dbName";"""
 
-  def createSchemaStatement(dbName: String, schemaName: String) = s"CREATE SCHEMA IF NOT EXISTS $dbName.$schemaName;"
+  def createSchemaStatement(dbName: String, schemaName: String) =
+    s"""CREATE SCHEMA IF NOT EXISTS "$dbName"."$schemaName";"""
 
-  def deleteSchemaStatement(dbName: String, schemaName: String) = s"DROP SCHEMA IF EXISTS $dbName.$schemaName;"
+  def deleteSchemaStatement(dbName: String, schemaName: String) = s"""DROP SCHEMA IF EXISTS "$dbName"."$schemaName";"""
 
   def primaryKeyConstraintStatement(tableName: String, columns: List[ColumnSchemaSpec]): Option[String] = {
     val primaryKeys = columns.filter(_.constraint.exists(_.equals(ConstraintType.PRIMARY_KEY))).map(_.name)
@@ -224,7 +249,7 @@ class QueryHelper extends LazyLogging {
     val primaryKeyConstraint = primaryKeyConstraintStatement(tableName, schema)
     val columns              = schema.map(_.toColumnStatement).mkString(",\n")
     val constraint           = primaryKeyConstraint.fold("")(constraint => s",\n$constraint")
-    s"""CREATE TABLE IF NOT EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+    s"""CREATE TABLE IF NOT EXISTS "$dbName"."$schemaName"."${tableName.toUpperCase}"
        |(
        | $columns$constraint
        |);""".stripMargin
@@ -328,26 +353,26 @@ class QueryHelper extends LazyLogging {
     val columnsToAddConstraint: List[ColumnSchemaSpec]    = schemaChanges.get.columnsToAddConstraint
 
     val addColumnsStatement = columnsToAdd
-      .map(c => s"""ALTER TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+      .map(c => s"""ALTER TABLE IF EXISTS "$dbName"."$schemaName"."${tableName.toUpperCase}"
                    | ADD COLUMN
                    | ${c.toColumnStatement}
                    | ;""".stripMargin)
 
     val dropColumnStatements = columnsToDelete.map(_.toDropColumnStatement)
-      .map(st => s"""ALTER TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+      .map(st => s"""ALTER TABLE IF EXISTS "$dbName"."$schemaName"."${tableName.toUpperCase}"
                     | $st
                     | ;""".stripMargin)
 
     val updateColumnTypeStatements = columnsToUpdateType
-      .map(c => s"""ALTER TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+      .map(c => s"""ALTER TABLE IF EXISTS "$dbName"."$schemaName"."${tableName.toUpperCase}"
                    | ${c.toUpdateColumnStatementDataType}
                    | ;""".stripMargin)
 
     val updateColumnConstraintStatements = columnsToRemoveConstraint
-      .map(c => s"""ALTER TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+      .map(c => s"""ALTER TABLE IF EXISTS "$dbName"."$schemaName"."${tableName.toUpperCase}"
                    | ${c.toRemoveColumnStatementConstraint}
                    |;""".stripMargin) ++
-      columnsToAddConstraint.map(c => s"""ALTER TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase}
+      columnsToAddConstraint.map(c => s"""ALTER TABLE IF EXISTS "$dbName"."$schemaName"."${tableName.toUpperCase}"
                                          | ${c.toAddColumnStatementConstraint}
                                          |;""".stripMargin)
 
@@ -543,32 +568,32 @@ class QueryHelper extends LazyLogging {
       existingSchemaInformation: List[TableSpec],
       tables: List[TableSpec],
       dropColumnEnabled: Boolean
-  ): Either[SnowflakeError, List[SchemaChanges]] = {
+  ): Either[SnowflakeError, List[SchemaChanges]] = component match {
+    case storageArea: StorageArea =>
+      val dbName         = getDatabaseName(descriptor, storageArea.specific)
+      val schemaName     = getSchemaName(descriptor, storageArea.specific)
+      val existingTables = existingSchemaInformation.map(_.tableName)
 
-    val dbName         = getDatabaseName(descriptor, component.specific)
-    val schemaName     = getSchemaName(descriptor, component.specific)
-    val existingTables = existingSchemaInformation.map(a => a.tableName)
-
-    val results = tables.filter(t => existingTables.contains(t.tableName.toUpperCase()))
-      .foldLeft[Either[SnowflakeError, List[SchemaChanges]]](Right(Nil)) { (acc, table) =>
-        acc match {
-          case Right(schemaChanges) => checkTableSchemaChanges(
-              dbName,
-              schemaName,
-              table.tableName.toUpperCase(),
-              connection,
-              existingSchemaInformation.find(_.tableName.equals(table.tableName.toUpperCase())),
-              table.schema,
-              dropColumnEnabled
-            ) match {
-              case Right(newSchemaChanges) => Right(schemaChanges ++ List(newSchemaChanges))
-              case Left(error)             => Left(error)
-            }
-          case Left(error)          => Left(error)
+      val results = tables.filter(t => existingTables.contains(t.tableName.toUpperCase()))
+        .foldLeft[Either[SnowflakeError, List[SchemaChanges]]](Right(Nil)) { (acc, table) =>
+          acc match {
+            case Right(schemaChanges) => checkTableSchemaChanges(
+                dbName,
+                schemaName,
+                table.tableName.toUpperCase(),
+                connection,
+                existingSchemaInformation.find(_.tableName.equals(table.tableName.toUpperCase())),
+                table.schema,
+                dropColumnEnabled
+              ) match {
+                case Right(newSchemaChanges) => Right(schemaChanges ++ List(newSchemaChanges))
+                case Left(error)             => Left(error)
+              }
+            case Left(error)          => Left(error)
+          }
         }
-      }
-
-    results.map(_.reverse.toSeq)
+      results.map(_.reverse.toSeq)
+    case _                        => Left(ParseError(Option("Invalid component type!")))
   }
 
   def checkTableSchemaChanges(
@@ -662,7 +687,7 @@ class QueryHelper extends LazyLogging {
   }
 
   def deleteTableStatement(dbName: String, schemaName: String, tableName: String) =
-    s"DROP TABLE IF EXISTS $dbName.$schemaName.${tableName.toUpperCase};"
+    s"""DROP TABLE IF EXISTS "$dbName"."$schemaName"."${tableName.toUpperCase}";"""
 
   def createTablesStatement(dbName: String, schemaName: String, tables: List[TableSpec]): Seq[String] = tables
     .map(table => createTableStatement(dbName, schemaName, table.tableName, table.schema))
@@ -747,11 +772,11 @@ class QueryHelper extends LazyLogging {
       schemaName: String,
       tableName: String,
       schema: List[ColumnSchemaSpec]
-  ): String = s"CREATE VIEW IF NOT EXISTS $dbName.$schemaName.$viewName AS " +
-    s"(SELECT ${schema.map(_.name).mkString(",\n")} FROM $dbName.$schemaName.$tableName);"
+  ): String = s"""CREATE VIEW IF NOT EXISTS "$dbName"."$schemaName"."$viewName" AS """ + s"""(SELECT ${schema
+    .map(_.name).mkString(",\n")} FROM "$dbName"."$schemaName"."$tableName");"""
 
   def deleteViewStatement(dbName: String, schemaName: String, viewName: String) =
-    s"DROP VIEW IF EXISTS $dbName.$schemaName.$viewName"
+    s"""DROP VIEW IF EXISTS "$dbName"."$schemaName"."$viewName""""
 
   def updateViewStatement(
       dbName: String,
@@ -759,60 +784,57 @@ class QueryHelper extends LazyLogging {
       viewName: String,
       tableName: String,
       schema: List[ColumnSchemaSpec]
-  ) = s"ALTER VIEW IF EXISTS $dbName.$schemaName.$viewName AS " +
-    s"(SELECT ${schema.map(_.name).mkString(",\n")} FROM $dbName.$schemaName.$tableName);"
+  ) = s"""ALTER VIEW IF EXISTS $dbName.$schemaName.$viewName AS """ + s"""(SELECT ${schema.map(_.name)
+    .mkString(",\n")} FROM "$dbName"."$schemaName"."$tableName");"""
 
-  def getDatabaseName(descriptor: ProvisioningRequestDescriptor, specific: Json): String =
-    specific.hcursor.downField("database").as[String] match {
-      case Left(_)         =>
+  def getDatabaseName(descriptor: ProvisioningRequestDescriptor, specific: Specific): String = specific match {
+    case sp: SpecificOutputPort  => sp.database.getOrElse {
         logger.info("The database is not in the specific field, fetching domain...")
         descriptor.dataProduct.domain.toUpperCase
-      case Right(database) =>
-        logger.info("Database field found")
-        database
-    }
+      }
+    case sp: SpecificStorageArea => sp.database.getOrElse {
+        logger.info("The database is not in the specific field, fetching domain...")
+        descriptor.dataProduct.domain.toUpperCase
+      }
+  }
 
-  def getSchemaName(descriptor: ProvisioningRequestDescriptor, specific: Json): String =
-    specific.hcursor.downField("schema").as[String] match {
-      case Left(_)           =>
+  def getSchemaName(descriptor: ProvisioningRequestDescriptor, specific: Specific): String = specific match {
+    case sp: SpecificOutputPort  => sp.schema.getOrElse {
         logger.info("Database schema not found in specific field, taking data product name and version...")
         s"${descriptor.dataProduct.name.toUpperCase.replaceAll(" ", "")}_${descriptor.dataProduct.version.split('.')(0)}"
-      case Right(schemaName) =>
-        logger.info("Database schema found")
-        schemaName
-    }
+      }
+    case sp: SpecificStorageArea => sp.schema.getOrElse {
+        logger.info("Database schema not found in specific field, taking data product name and version...")
+        s"${descriptor.dataProduct.name.toUpperCase.replaceAll(" ", "")}_${descriptor.dataProduct.version.split('.')(0)}"
+      }
+  }
 
-  def getTableSchema(component: ComponentDescriptor): Either[SnowflakeError, List[ColumnSchemaSpec]] = for {
-    dataContract <- component.header.hcursor.downField("dataContract").as[Json].left.map(error =>
-      ParseError(Some(component.toString), Some("dataContract"), List(s"Parse error: ${error.getMessage}"))
-    )
-    schema       <- dataContract.hcursor.downField("schema").as[List[ColumnSchemaSpec]].left
-      .map(error => ParseError(Some(component.toString), Some("schema"), List(s"Parse error: ${error.getMessage}")))
-  } yield schema
+  def getTableSchema(outputPort: OutputPort): Either[SnowflakeError, List[ColumnSchemaSpec]] = {
+    val schema = outputPort.dataContract.schema
+    if (schema.isEmpty) {
+      Left(ParseError(Some(outputPort.toString), Some("dataContract"), List("Data Contract schema is empty!")))
+    } else { Right(schema.toList) }
+  }
 
-  def getComponentTags(component: ComponentDescriptor): List[Map[String, String]] =
-    component.specific.hcursor.downField("tags").as[List[Map[String, String]]] match {
-      case Right(componentTags) => componentTags
-      case Left(_)              => List.empty
-    }
+  def getComponentTags(outputPort: OutputPort): List[Map[String, String]] = outputPort.specific.tags
+    .getOrElse(List.empty)
 
-  def getTableName(component: ComponentDescriptor): Either[SnowflakeError, String] = component.specific.hcursor
-    .downField("tableName").as[String].left.map(error =>
-      GetTableNameError(
-        List(error.message),
+  def getTableName(outputPort: OutputPort): Either[SnowflakeError, String] = {
+    val tableName = outputPort.specific.tableName
+    if (tableName.isEmpty) {
+      Left(GetTableNameError(
         List("If a custom view query is not provided, please provide a tableName in the specific section")
-      )
-    )
+      ))
+    } else { Right(tableName) }
+  }
 
-  def getViewName(component: ComponentDescriptor): Either[GetViewNameError, String] = component.specific.hcursor
-    .downField("viewName").as[String].left
-    .map(error => GetViewNameError(List(error.message), List("Please provide the view name in the specific section")))
+  def getViewName(outputPort: OutputPort): Either[GetViewNameError, String] = {
+    val viewName = outputPort.specific.viewName
+    if (viewName.isEmpty) { Left(GetViewNameError(List("Please provide the view name in the specific section!"))) }
+    else { Right(viewName) }
+  }
 
-  def getCustomViewStatement(component: ComponentDescriptor): String =
-    component.specific.hcursor.downField("customView").as[String] match {
-      case Right(customView) => customView
-      case Left(_)           => ""
-    }
+  def getCustomViewStatement(outputPort: OutputPort): String = outputPort.specific.customView.getOrElse("")
 
   def getCustomViewDetails(query: String): Map[String, String] = {
     val emptyDetails = Map[String, String]()
@@ -836,12 +858,12 @@ class QueryHelper extends LazyLogging {
 
   val alterSessionToJsonResult: String = "ALTER SESSION SET JDBC_QUERY_RESULT_FORMAT='JSON'"
 
-  def getTables(component: ComponentDescriptor): Either[SnowflakeError, List[TableSpec]] =
-    component.specific.hcursor.downField("tables").as[List[TableSpec]] match {
-      case Right(tables) => Right(tables)
-      case Left(error)   =>
-        Left(ParseError(Some(component.toString), Some("schema"), List(s"Parse error: ${error.getMessage}")))
-    }
+  def getTables(storageArea: StorageArea): Either[SnowflakeError, List[TableSpec]] = {
+    val tablesList = storageArea.specific.tables.toList
+    if (tablesList.isEmpty) {
+      Left(ParseError(problems = List("The provided request does not contain tables since it is empty!")))
+    } else { Right(tablesList) }
+  }
 
   def getComponent(descriptor: ProvisioningRequestDescriptor): Either[SnowflakeError, ComponentDescriptor] = descriptor
     .getComponentToProvision.toRight(GetComponentError(descriptor.componentIdToProvision))

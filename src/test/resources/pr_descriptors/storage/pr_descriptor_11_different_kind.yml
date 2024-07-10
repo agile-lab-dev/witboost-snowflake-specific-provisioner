@@ -21,7 +21,7 @@ dataProduct:
       name: Marketing-Invoice-S3-Ingestion-Data-1
       fullyQualifiedName: Marketing Invoice S3 Ingestion Data
       description: Marketing Invoice S3 Ingestion Data
-      kind: storage
+      kind: workload
       owners:
         - group:bigdata
       infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0
@@ -32,26 +32,7 @@ dataProduct:
       storageType: SQL
       tags: [ ]
       specific:
-        tables:
-          - tableName: table1
-            schema:
-            - name: id
-              dataType: TEXT
-              constraint: PRIMARY_KEY
-            - name: name
-              dataType: TEXT
-            - name: phone
-              dataType: NUMBER
-              constraint: NOT_NULL
-          - tableName: table2
-            schema:
-              - name: id
-                dataType: TEXT
-                constraint: PRIMARY_KEY
-              - name: name
-                dataType: TEXT
-                constraint: NOT_NULL
-              - name: phone
-                dataType: NUMBER
-                constraint: UNIQUE
+        database: TEST_AIRBYTE
+        schema: PUBLIC
+        tables: [ ]
 componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

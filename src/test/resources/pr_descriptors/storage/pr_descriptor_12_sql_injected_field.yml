@@ -32,26 +32,23 @@ dataProduct:
       storageType: SQL
       tags: [ ]
       specific:
+        database: TEST_AIRBYTE
+        schema: PUBLIC
         tables:
-          - tableName: table1
-            schema:
-            - name: id
-              dataType: TEXT
-              constraint: PRIMARY_KEY
-            - name: name
-              dataType: TEXT
-            - name: phone
-              dataType: NUMBER
-              constraint: NOT_NULL
-          - tableName: table2
+          - tableName: test' --DROP TABLE test_table;
             schema:
               - name: id
                 dataType: TEXT
                 constraint: PRIMARY_KEY
+              - name: hour
+                dataType: TEXT
+                constraint: PRIMARY_KEY
+              - name: date
+                dataType: TEXT
+                constraint: PRIMARY_KEY
               - name: name
                 dataType: TEXT
-                constraint: NOT_NULL
               - name: phone
                 dataType: NUMBER
-                constraint: UNIQUE
+                constraint: NOT_NULL
 componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1
