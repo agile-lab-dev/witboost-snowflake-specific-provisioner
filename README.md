@@ -1,10 +1,10 @@
 <p align="center">
-    <a href="https://www.agilelab.it/witboost">
+    <a href="https://www.witboost.com/">
         <img src="docs/img/witboost_logo.svg" alt="witboost" width=600 >
     </a>
 </p>
 
-Designed by [Agile Lab](https://www.agilelab.it/), witboost is a versatile platform that addresses a wide range of sophisticated data engineering challenges. It enables businesses to discover, enhance, and productize their data, fostering the creation of automated data platforms that adhere to the highest standards of data governance. Want to know more about witboost? Check it out [here](https://www.agilelab.it/witboost) or [contact us!](https://www.agilelab.it/contacts)
+Designed by [Agile Lab](https://www.agilelab.it/), witboost is a versatile platform that addresses a wide range of sophisticated data engineering challenges. It enables businesses to discover, enhance, and productize their data, fostering the creation of automated data platforms that adhere to the highest standards of data governance. Want to know more about witboost? Check it out [here](https://www.witboost.com/) or [contact us!](https://witboost.com/contact-us)
 
 This repository is part of our [Starter Kit](https://github.com/agile-lab-dev/witboost-starter-kit) meant to showcase witboost's integration capabilities and provide a "batteries-included" product.
 
@@ -115,7 +115,7 @@ Snowflake connection information can be passed in via environment variables or c
 To clarify, below a detailed explain of how configure your variables. By accessing your Snowflake environment, in the lower left part of the page, you can retrieve these information:
 
 <p align="center">
-    <a href="https://www.agilelab.it/witboost">
+    <a href="https://www.witboost.com/">
         <img src="docs/img/snowflake_parameters.png" alt="parameters" width=600 >
     </a>
 </p>
