@@ -12,7 +12,7 @@ A Helm chart for Kubernetes
 | configOverride | string | `nil` | This configuration allows you to override the application.conf file |
 | dockerRegistrySecretName | string | `"regcred"` | Docker Registry Secret name used to access a private repo |
 | image.pullPolicy | string | `"Always"` | The imagePullPolicy for a container and the tag of the image affect when the kubelet attempts to pull (download) the specified image. |
-| image.registry | string | `"registry.gitlab.com/agilefactory/witboost.mesh/provisioning/sandbox/witboost.mesh.provisioning.sandbox.snowflake-specific-provisioner"` | Image repository |
+| image.registry | string | `"registry.gitlab.com/agilefactory/witboost.mesh/provisioning/sandbox/witboost.mesh.provisioning.sandbox.snowflakespecificprovisioner"` | Image repository |
 | image.tag | string | `"latest"` | Image tag |
 | livenessProbe | object | `{}` | liveliness probe spec |
 | logbackOverride | string | `nil` | This configuration allows you to override the logback.xml file |

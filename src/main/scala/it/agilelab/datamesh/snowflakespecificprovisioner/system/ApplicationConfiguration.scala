@@ -41,4 +41,7 @@ object ApplicationConfiguration {
   def tagReferencesDatabase: String            = config.get.getString("snowflake.tag-references.database")
   def tagReferencesSchema: String              = config.get.getString("snowflake.tag-references.schema")
   def tagReferencesView: String                = config.get.getString("snowflake.tag-references.view")
+
+  val storageAreaUseCaseTemplateId: String = config.get.getString("specific-provisioner.storage-useCaseTemplateId")
+  val outputPortUseCaseTemplateId: String  = config.get.getString("specific-provisioner.outputport-useCaseTemplateId")
 }

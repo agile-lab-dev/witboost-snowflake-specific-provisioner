@@ -1,4 +1,4 @@
-package it.agilelab.datamesh.snowflakespecificprovisioner.utils
+package it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector
 
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.test.getTestResourceAsString
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
@@ -18,11 +18,10 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{
   DataType,
   SchemaChanges
 }
-import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.QueryHelper
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class QueryHelperTest extends AnyFlatSpec with Matchers {
+class QueryHelperSpec extends AnyFlatSpec with Matchers {
   val queryHelper = new QueryHelper
 
   "the createTableStatement method" should "format correctly the create table statement" in {
@@ -298,10 +297,10 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       res shouldBe a[Right[_, _]]
       res.foreach(script =>
         script should be(List(
-          "CREATE TAG IF NOT EXISTS\n TESTDB.PUBLIC.\"tag tabella\"\n ;",
-          "CREATE TAG IF NOT EXISTS\n TESTDB.PUBLIC.\"tag di prova\"\n ;",
-          "ALTER TABLE IF EXISTS TESTDB.PUBLIC.TABLE1\n SET TAG TESTDB.PUBLIC.\"tag tabella\" = 'valore di prova'\n;",
-          "ALTER TABLE IF EXISTS TESTDB.PUBLIC.TABLE1\n ALTER COLUMN id SET TAG\n TESTDB.PUBLIC.\"tag di prova\" = 'valore di prova'\n;"
+          "CREATE TAG IF NOT EXISTS TESTDB.PUBLIC.\"tag tabella\";",
+          "CREATE TAG IF NOT EXISTS TESTDB.PUBLIC.\"tag di prova\";",
+          "ALTER TABLE IF EXISTS TESTDB.PUBLIC.TABLE1\n SET TAG TESTDB.PUBLIC.\"tag tabella\" = 'valore di prova';",
+          "ALTER TABLE IF EXISTS TESTDB.PUBLIC.TABLE1\n ALTER COLUMN id SET TAG\n TESTDB.PUBLIC.\"tag di prova\" = 'valore di prova';"
         ))
       )
     }
@@ -316,10 +315,10 @@ class QueryHelperTest extends AnyFlatSpec with Matchers {
       res shouldBe a[Right[_, _]]
       res.foreach(script =>
         script should be(List(
-          "ALTER VIEW IF EXISTS TEST_AIRBYTE.PUBLIC.SNOWFLAKE_VIEW\n ALTER COLUMN phone SET TAG\n TEST_AIRBYTE.PUBLIC.\"tag di prova\" = 'valore di prova'\n;",
-          "ALTER VIEW IF EXISTS TEST_AIRBYTE.PUBLIC.SNOWFLAKE_VIEW\n SET TAG TEST_AIRBYTE.PUBLIC.\"tag view\" = 'valore di prova'\n;",
-          "CREATE TAG IF NOT EXISTS\n TEST_AIRBYTE.PUBLIC.\"tag di prova\"\n ;",
-          "CREATE TAG IF NOT EXISTS\n TEST_AIRBYTE.PUBLIC.\"tag view\"\n ;"
+          "ALTER VIEW IF EXISTS TEST_AIRBYTE.PUBLIC.SNOWFLAKE_VIEW\n ALTER COLUMN phone SET TAG\n TEST_AIRBYTE.PUBLIC.\"tag di prova\" = 'valore di prova';",
+          "ALTER VIEW IF EXISTS TEST_AIRBYTE.PUBLIC.SNOWFLAKE_VIEW\n SET TAG TEST_AIRBYTE.PUBLIC.\"tag view\" = 'valore di prova';",
+          "CREATE TAG IF NOT EXISTS TEST_AIRBYTE.PUBLIC.\"tag di prova\";",
+          "CREATE TAG IF NOT EXISTS TEST_AIRBYTE.PUBLIC.\"tag view\";"
         ))
       )
     }

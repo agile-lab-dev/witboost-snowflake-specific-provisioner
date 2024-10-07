@@ -1,7 +1,7 @@
 package it.agilelab.datamesh.snowflakespecificprovisioner.schema
 
-import io.circe.Decoder
-import io.circe.generic.semiauto.deriveDecoder
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.ConstraintType.ConstraintType
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.DataType.DataType
 
@@ -52,5 +52,6 @@ case class ColumnSchemaSpec(
 }
 
 object ColumnSchemaSpec {
-  implicit val columnSchemaSpecDecoder: Decoder[ColumnSchemaSpec] = deriveDecoder[ColumnSchemaSpec]
+  implicit val columnSchemaSpecDecoder: Decoder[ColumnSchemaSpec]          = deriveDecoder[ColumnSchemaSpec]
+  implicit val columnSchemaSpecEncoder: Encoder.AsObject[ColumnSchemaSpec] = deriveEncoder[ColumnSchemaSpec]
 }

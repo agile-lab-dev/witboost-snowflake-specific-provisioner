@@ -52,6 +52,15 @@ final case class SchemaChangesError(
   override def userMessage: String = s"Error while validating table schema changes"
 }
 
+final case class ReverseProvisioningError(
+    override val input: Option[String] = None,
+    override val inputErrorField: Option[String] = None,
+    override val problems: List[String] = List.empty,
+    override val solutions: List[String] = List.empty
+) extends SnowflakeSystemError {
+  override def userMessage: String = s"Error while performing the reverse provisioning!"
+}
+
 object ExecuteStatementError {
 
   implicit def executeStatementErrorSemigroup: Semigroup[ExecuteStatementError] =

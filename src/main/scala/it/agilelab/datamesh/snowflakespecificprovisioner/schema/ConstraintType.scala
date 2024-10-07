@@ -1,6 +1,6 @@
 package it.agilelab.datamesh.snowflakespecificprovisioner.schema
 
-import io.circe.Decoder
+import io.circe.{Decoder, Encoder}
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema
 
 case class ConstraintType()
@@ -9,6 +9,7 @@ object ConstraintType extends Enumeration {
   type ConstraintType = Value
 
   implicit val constraintTypeDecoder: Decoder[ConstraintType.Value] = Decoder.decodeEnumeration(ConstraintType)
+  implicit val constraintTypeEncoder: Encoder[ConstraintType.Value] = Encoder.encodeEnumeration(ConstraintType)
 
   implicit def stringToConstraintType(s: String): ConstraintType = ConstraintType.withName(s)
 

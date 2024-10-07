@@ -190,5 +190,22 @@ class ProvisionerApiServiceImpl(snowflakeManager: SnowflakeManager)
       toEntityMarshallerRequestValidationError: ToEntityMarshaller[RequestValidationError],
       toEntityMarshallerSystemError: ToEntityMarshaller[SystemError],
       toEntityMarshallerReverseProvisioningStatus: ToEntityMarshaller[ReverseProvisioningStatus]
-  ): Route = runReverseProvisioning500(NotImplementedError)
+  ): Route = snowflakeManager.executeReverseProvisioning(reverseProvisioningRequest) match {
+    case Left(e: SnowflakeSystemError)     =>
+      logger.error("System Error: ", e)
+      runReverseProvisioning500(ModelConverter.buildSystemError(e))
+    case Left(e: SnowflakeValidationError) =>
+      logger.error("Validation Error: ", e)
+      runReverseProvisioning400(ModelConverter.buildRequestValidationError(e))
+    case Right(eitherResult)               => eitherResult match {
+        case Some(status) =>
+          logger.info("OK with result {}", status)
+          runReverseProvisioning200(status)
+        case None         =>
+          logger.info("OK")
+          runReverseProvisioning200(
+            ReverseProvisioningStatus(ReverseProvisioningStatusEnums.StatusEnum.COMPLETED, updates = "")
+          )
+      }
+  }
 }

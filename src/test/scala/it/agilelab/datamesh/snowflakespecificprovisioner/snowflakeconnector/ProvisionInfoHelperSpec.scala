@@ -1,18 +1,17 @@
-package it.agilelab.datamesh.snowflakespecificprovisioner.utils
+package it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector
 
-import it.agilelab.datamesh.snowflakespecificprovisioner.common.test.getTestResourceAsString
-import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
-import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.ProvisionInfoHelper
-import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfigurationWrapper
-import org.scalamock.scalatest.MockFactory
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
 import it.agilelab.datamesh.snowflakespecificprovisioner.api.dto.{
   SnowflakeOutputPortDetailsLinkType,
   SnowflakeOutputPortDetailsStringType
 }
+import it.agilelab.datamesh.snowflakespecificprovisioner.common.test.getTestResourceAsString
+import it.agilelab.datamesh.snowflakespecificprovisioner.model.ProvisioningRequestDescriptor
+import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfigurationWrapper
+import org.scalamock.scalatest.MockFactory
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class ProvisionInfoHelperTest extends AnyFlatSpec with Matchers with MockFactory {
+class ProvisionInfoHelperSpec extends AnyFlatSpec with Matchers with MockFactory {
   val mockConfig: ApplicationConfigurationWrapper = mock[ApplicationConfigurationWrapper]
 
   val provisionInfoHelper = new ProvisionInfoHelper(mockConfig)

@@ -15,7 +15,13 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.api.intepreter.{
 }
 import it.agilelab.datamesh.snowflakespecificprovisioner.principalsmapper.PrincipalsMapperFactory
 import it.agilelab.datamesh.snowflakespecificprovisioner.server.Controller
-import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.{SnowflakeExecutor, SnowflakeManager}
+import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.{
+  QueryHelper,
+  ReverseProvisioning,
+  SnowflakeExecutor,
+  SnowflakeManager,
+  SnowflakeTableInformationHelper
+}
 import it.agilelab.datamesh.snowflakespecificprovisioner.system.ApplicationConfiguration.httpPort
 
 import scala.jdk.CollectionConverters._
@@ -27,15 +33,24 @@ object Main extends LazyLogging {
       import akka.actor.typed.scaladsl.adapter._
       implicit val classicSystem: actor.ActorSystem = context.system.toClassic
 
-      val snowflakeExecutor = new SnowflakeExecutor
-      val principalsMapper  = PrincipalsMapperFactory.create(snowflakeExecutor)
+      val snowflakeExecutor               = new SnowflakeExecutor
+      val queryHelper                     = new QueryHelper
+      val snowflakeTableInformationHelper = new SnowflakeTableInformationHelper(queryHelper)
+      val reverseProvisioning             = new ReverseProvisioning(snowflakeExecutor, snowflakeTableInformationHelper)
+      val principalsMapper                = PrincipalsMapperFactory.create(snowflakeExecutor)
       principalsMapper.fold(
         error => {
           logger.error(error)
           Behaviors.stopped
         },
         mapper => {
-          val snowflakeManager = new SnowflakeManager(snowflakeExecutor, mapper)
+          val snowflakeManager = new SnowflakeManager(
+            snowflakeExecutor,
+            queryHelper,
+            snowflakeTableInformationHelper,
+            reverseProvisioning,
+            mapper
+          )
           val impl             = new ProvisionerApiServiceImpl(snowflakeManager)
 
           val api = new SpecificProvisionerApi(

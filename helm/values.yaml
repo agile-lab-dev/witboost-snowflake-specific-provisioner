@@ -4,7 +4,7 @@
 
 image:
   # -- Image repository
-  registry: registry.gitlab.com/agilefactory/witboost.mesh/provisioning/sandbox/witboost.mesh.provisioning.sandbox.snowflake-specific-provisioner
+  registry: registry.gitlab.com/agilefactory/witboost.mesh/provisioning/sandbox/witboost.mesh.provisioning.sandbox.snowflakespecificprovisioner
   # -- Image tag
   tag: latest
   # -- The imagePullPolicy for a container and the tag of the image affect when the kubelet attempts to pull (download) the specified image.

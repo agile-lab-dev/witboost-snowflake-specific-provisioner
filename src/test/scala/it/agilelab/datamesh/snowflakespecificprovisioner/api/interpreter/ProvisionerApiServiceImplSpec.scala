@@ -8,6 +8,8 @@ import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 import akka.testkit.TestDuration
 import com.typesafe.scalalogging.StrictLogging
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
+import io.circe.Json
+import io.circe.syntax.EncoderOps
 import it.agilelab.datamesh.snowflakespecificprovisioner.api.SpecificProvisionerApi
 import it.agilelab.datamesh.snowflakespecificprovisioner.api.intepreter.{
   ProvisionerApiMarshallerImpl,
@@ -16,9 +18,11 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.api.intepreter.{
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.test.getTestResourceAsString
 import it.agilelab.datamesh.snowflakespecificprovisioner.model._
+import it.agilelab.datamesh.snowflakespecificprovisioner.schema.TableSpec
 import it.agilelab.datamesh.snowflakespecificprovisioner.server.Controller
 import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.{
   GetTableNameError,
+  ParseError,
   ProvisioningValidationError,
   SnowflakeManager
 }
@@ -166,6 +170,39 @@ class ProvisionerApiServiceImplSpec
     )))
 
     Post("/v1/updateacl", request) ~> api.route ~> check(response.status shouldEqual StatusCodes.BadRequest)
+  }
+
+  it should "synchronously reverse provision when a valid request is passed as input" in {
+    val request          = ReverseProvisioningRequest(
+      "urn:dmb:utm:snowflake-storage-template:0.0.0",
+      "development",
+      Some(Json.obj(
+        "database" -> Json.fromString("databaseName"),
+        "schema"   -> Json.fromString("schemaName"),
+        "tables"   -> List("table1").asJson
+      ))
+    )
+    val expectedResponse = ReverseProvisioningStatus(
+      ReverseProvisioningStatusEnums.StatusEnum.COMPLETED,
+      Json.obj("spec.mesh.specific.tables" -> List(TableSpec("table1", List.empty, None)).asJson)
+    )
+
+    val _ = (snowflakeManager.executeReverseProvisioning _).expects(*).returns(Right(Some(expectedResponse)))
+
+    Post("/v1/reverse-provisioning", request) ~> api.route ~> check {
+      val response = responseAs[ReverseProvisioningStatus]
+      response.status shouldEqual ReverseProvisioningStatusEnums.StatusEnum.COMPLETED
+      response.updates shouldEqual expectedResponse.updates
+    }
+  }
+
+  it should "fail synchronously reverse provision when the provision info contains a wrong descriptor" in {
+    val request = ReverseProvisioningRequest("urn:dmb:utm:snowflake-storage-template:0.0.0", "development", None)
+
+    val _ = (snowflakeManager.executeReverseProvisioning _).expects(*)
+      .returns(Left(ParseError(None, None, List("Error!"))))
+
+    Post("/v1/reverse-provisioning", request) ~> api.route ~> check(response.status shouldEqual StatusCodes.BadRequest)
   }
 
 }

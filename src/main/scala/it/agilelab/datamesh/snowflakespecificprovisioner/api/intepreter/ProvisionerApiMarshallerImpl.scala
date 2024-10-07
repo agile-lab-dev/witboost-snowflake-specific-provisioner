@@ -116,7 +116,7 @@ class ProvisionerApiMarshallerImpl extends SpecificProvisionerApiMarshaller {
       useCaseTemplateId <- c.downField("useCaseTemplateId").as[String]
       environment       <- c.downField("environment").as[String]
       params            <- c.downField("params").as[Option[Json]]
-      catalogInfo       <- c.downField("catalogInfo").as[Option[String]]
+      catalogInfo       <- c.downField("catalogInfo").as[Option[Json]]
     } yield ReverseProvisioningRequest(useCaseTemplateId, environment, params, catalogInfo)
 
   implicit val ReverseProvisioningRequestEncoder: Encoder[ReverseProvisioningRequest] =
@@ -135,6 +135,9 @@ class ProvisionerApiMarshallerImpl extends SpecificProvisionerApiMarshaller {
 
   implicit def fromEntityUnmarshallerReverseProvisioningRequest: FromEntityUnmarshaller[ReverseProvisioningRequest] =
     unmarshaller[ReverseProvisioningRequest]
+
+  implicit def fromEntityMarshallerReverseProvisioningRequest: ToEntityMarshaller[ReverseProvisioningRequest] =
+    marshaller[ReverseProvisioningRequest]
 
   implicit val ReverseProvisioningStatusEnumsEncoder: Encoder[ReverseProvisioningStatusEnums.StatusEnum.Value] = Encoder
     .encodeEnumeration(ReverseProvisioningStatusEnums.StatusEnum)

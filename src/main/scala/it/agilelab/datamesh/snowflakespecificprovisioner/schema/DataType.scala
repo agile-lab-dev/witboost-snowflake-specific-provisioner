@@ -1,12 +1,13 @@
 package it.agilelab.datamesh.snowflakespecificprovisioner.schema
 
-import io.circe.Decoder
+import io.circe.{Decoder, Encoder}
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema
 
 object DataType extends Enumeration {
   type DataType = Value
 
   implicit val dataTypeDecoder: Decoder[DataType.Value] = Decoder.decodeEnumeration(DataType)
+  implicit val dataTypeEncoder: Encoder[DataType.Value] = Encoder.encodeEnumeration(DataType)
 
   implicit def dataTypeToString(d: DataType): String = d.toString
 
@@ -18,10 +19,12 @@ object DataType extends Enumeration {
     case s if s.startsWith("DATE")    => DataType.DATE
     case s if s.startsWith("BOOLEAN") => DataType.BOOLEAN
     case s if s.startsWith("TEXT")    => DataType.TEXT
+    case s if s.startsWith("FLOAT")   => DataType.FLOAT
   }
 
   val TEXT: schema.DataType.Value    = Value("TEXT")
   val NUMBER: schema.DataType.Value  = Value("NUMBER")
   val DATE: schema.DataType.Value    = Value("DATE")
   val BOOLEAN: schema.DataType.Value = Value("BOOLEAN")
+  val FLOAT: schema.DataType.Value   = Value("FLOAT")
 }

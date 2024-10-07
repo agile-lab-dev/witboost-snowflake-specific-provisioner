@@ -14,6 +14,9 @@ This repository is part of our [Starter Kit](https://github.com/agile-lab-dev/wi
 - [Building](#building)
 - [Running](#running)
 - [Configuring](#configuring)
+  - [Account Setup](#account-setup)
+  - [Principal Mapping](#principals-mapper)
+  - [Reverse Provisioning](#reverse-provisioning)
 - [Deploying](#deploying)
 - [HLD](docs/HLD.md)
 - [API specification](docs/API.md)
@@ -220,6 +223,37 @@ The following options allow you to customize the database, schema and name of th
 You can find a sample SQL script to create required objects [here](docs/create_mapping_table.sql). Update it before executing, if you decide to use different default values for database, schema or table name.
 
 The role used  by the provisioner must have `SELECT` privileges on this table.
+
+### Reverse Provisioning
+
+This Specific Provisioner support the Reverse Provisioning operation, used on Witboost to import or update existing resources onto the platform. The Snowflake Specific Provisioner supports reverse provisioning for both output ports and storage area components. Specifically, it supports:
+
+* Reverse provisioning of a list of tables (modifying the `spec.mesh.specific.tables` catalog-info field, containing table name and column metadata) for storage area components given the input:
+    ```json
+    {
+      "database": "databaseName",
+      "schema": "schemaName",
+      "tables": ["listOf", "tableNames"]
+    }
+    ```
+* Reverse provisioning for output port components, including data contract schema (modifying `spec.mesh.dataContract.schema`) and table/view tags (`spec.mesh.tags`) given the input:
+    ```json
+    {
+      "database": "databaseName",
+      "schema": "schemaName",
+      "viewName": "viewName"
+    }
+    ```
+    > Currently, reverse provisioning doesn't support importing column tags on the data contract schema
+
+The Specific Provisioner identifies the type of component to be imported based on the useCaseTemplateId sent as part of the request. For this purpose, two configuration fields are added to the Specific Provisioner configuration file to specify the expected useCaseTemplateIds:
+
+| Setting                                           | Default value                                   |
+|---------------------------------------------------|-------------------------------------------------|
+| specific-provisioner.storage-useCaseTemplateId    | urn:dmb:utm:snowflake-storage-template:0.0.0    |
+| specific-provisioner.outputport-useCaseTemplateId | urn:dmb:utm:snowflake-outputport-template:0.0.0 |
+
+Set these values based on the useCaseTemplateId used by your components.
 
 ## Deploying
 
