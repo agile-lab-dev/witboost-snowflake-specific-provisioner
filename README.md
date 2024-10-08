@@ -189,8 +189,7 @@ In case you want to use a different database, schema or view, you are free to mo
 
 ### Principals Mapper
 
-When the `updateAcl` is queried, it requires a list of identities as parameter. This is the list of users/groups/roles that need the access.
-These identities have a meaning in the Witboost context, but might not have sense in the context of your resources (see Snowflake).
+When the `updateAcl` is queried, it requires a list of identities as parameter. This is the list of users/groups/roles that need access to the provisioned resource. These identities have a meaning in the Witboost context, but might not have sense in the context of your resources (see Snowflake).
 
 For this reason, we had introduced the concept of `PrincipalsMapper` strategy, which converts the identities from the Witboost context to the one that Snowflake uses.
 
@@ -198,7 +197,7 @@ For this reason, we had introduced the concept of `PrincipalsMapper` strategy, w
 
 ---
 
-In this strategy, the input is returned as output without any transformation.
+In this strategy, the input is returned as output without any transformation, trimming only the Witboost prefixes `user:` and `group:`.
 
 | Setting                              | Environment Variable                 | Default value | Allowed values       |
 |--------------------------------------|--------------------------------------|---------------|----------------------|

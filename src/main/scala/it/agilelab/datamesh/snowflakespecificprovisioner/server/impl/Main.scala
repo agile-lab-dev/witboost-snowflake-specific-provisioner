@@ -37,7 +37,7 @@ object Main extends LazyLogging {
       val queryHelper                     = new QueryHelper
       val snowflakeTableInformationHelper = new SnowflakeTableInformationHelper(queryHelper)
       val reverseProvisioning             = new ReverseProvisioning(snowflakeExecutor, snowflakeTableInformationHelper)
-      val principalsMapper                = PrincipalsMapperFactory.create(snowflakeExecutor)
+      val principalsMapper                = PrincipalsMapperFactory.create(snowflakeExecutor, queryHelper)
       principalsMapper.fold(
         error => {
           logger.error(error)

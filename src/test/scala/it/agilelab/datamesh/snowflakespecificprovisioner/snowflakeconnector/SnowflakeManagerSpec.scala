@@ -52,7 +52,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
 
   "update acl on an output port" should "return Left if there is an invalid ref but only after granting access" in {
 
-    val refs         = List("user:user1_agilelab.it", "group:bigData", "user:user2_agilelab.it")
+    val refs         = List("user:user1_agilelab.it", "owner:bigData", "user:user2_agilelab.it")
     val mappedGroups = principalsMapper.map(refs.toSet).values.partitionMap(identity)
 
     val yaml    = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_2.yml")
@@ -66,9 +66,7 @@ class SnowflakeManagerSpec extends AnyFlatSpec with MockFactory with should.Matc
 
     val resGroups = snowflakeManager.executeUpdateAcl(prDescr, refs)
     resGroups shouldBe a[Left[_, _]]
-    resGroups.left.foreach { err =>
-      err.problems should contain("Groups are not supported by Snowflake to grant roles")
-    }
+    resGroups.left.foreach(err => err.problems should contain("Unexpected subject in user principal mapping"))
   }
 
   "update acl on an output port" should "return Left if there is a wrong user to grant access" in {

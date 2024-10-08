@@ -13,6 +13,11 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.model.{
   ProvisioningRequestDescriptor,
   Specific
 }
+import it.agilelab.datamesh.snowflakespecificprovisioner.principalsmapper.{
+  SnowflakeGroup,
+  SnowflakePrincipals,
+  SnowflakeUser
+}
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.DataType.DataType
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.{
   ColumnSchemaSpec,
@@ -195,7 +200,7 @@ class QueryHelper extends LazyLogging {
 
   def buildRefsStatement(
       descriptor: ProvisioningRequestDescriptor,
-      refs: Seq[String],
+      refs: Seq[SnowflakePrincipals],
       operation: OperationType
   ): Either[SnowflakeError, Seq[String]] = {
     logger.info("Starting building refs statements")
@@ -219,7 +224,7 @@ class QueryHelper extends LazyLogging {
       }
       roleName   = buildRoleName(dbName, schemaName, viewName)
     } yield operation match {
-      case ASSIGN_ROLE   => Right(assignRoleToUserStatement(roleName, refs))
+      case ASSIGN_ROLE   => Right(assignRoleStatement(roleName, refs))
       case unsupportedOp => Left(UnsupportedOperationError(unsupportedOp))
     }
   }.flatten
@@ -746,8 +751,10 @@ class QueryHelper extends LazyLogging {
 
   def deleteRoleStatement(roleName: String): String = s"DROP ROLE IF EXISTS $roleName;"
 
-  def assignRoleToUserStatement(roleName: String, users: Seq[String]): Seq[String] = users
-    .map(user => s"GRANT ROLE $roleName TO USER \"$user\";")
+  def assignRoleStatement(roleName: String, refs: Seq[SnowflakePrincipals]): Seq[String] = refs.map {
+    case SnowflakeUser(user)       => s"GRANT ROLE $roleName TO USER \"$user\";"
+    case SnowflakeGroup(groupName) => s"GRANT ROLE $roleName TO ROLE \"$groupName\";"
+  }
 
   def buildRoleName(dbName: String, schemaName: String, viewName: String): String =
     s"${dbName}_${schemaName}_${viewName}_ACCESS"

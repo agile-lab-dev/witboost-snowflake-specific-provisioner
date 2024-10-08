@@ -19,6 +19,7 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.test.getTestResourceAsString
 import it.agilelab.datamesh.snowflakespecificprovisioner.model._
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.TableSpec
+import it.agilelab.datamesh.snowflakespecificprovisioner.principalsmapper.{SnowflakeGroup, SnowflakeUser}
 import it.agilelab.datamesh.snowflakespecificprovisioner.server.Controller
 import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.{
   GetTableNameError,
@@ -140,11 +141,12 @@ class ProvisionerApiServiceImplSpec
   }
 
   it should "synchronously updateacl when a valid request is passed as input" in {
-    val yaml    = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1.yml")
-    val refs    = List("user:user_agilelab.it")
-    val request = UpdateAclRequest(refs, ProvisionInfo(yaml, "res"))
+    val yaml         = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1.yml")
+    val refs         = List("user:user_agilelab.it", "group:witboost")
+    val refsResponse = List(SnowflakeUser("user@agilelab.it"), SnowflakeGroup("witboost"))
+    val request      = UpdateAclRequest(refs, ProvisionInfo(yaml, "res"))
 
-    val _ = (snowflakeManager.executeUpdateAcl _).expects(*, *).returns(Right(refs))
+    val _ = (snowflakeManager.executeUpdateAcl _).expects(*, *).returns(Right(refsResponse))
 
     Post("/v1/updateacl", request) ~> api.route ~> check {
       val response = responseAs[ProvisioningStatus]

@@ -2,7 +2,12 @@ package it.agilelab.datamesh.snowflakespecificprovisioner.principalsmapper
 
 import it.agilelab.datamesh.snowflakespecificprovisioner.snowflakeconnector.PrincipalMappingError
 
-trait PrincipalsMapper[PRINCIPAL] {
+sealed trait SnowflakePrincipals
+
+case class SnowflakeUser(user: String)       extends SnowflakePrincipals
+case class SnowflakeGroup(groupName: String) extends SnowflakePrincipals
+
+trait PrincipalsMapper[PRINCIPAL <: SnowflakePrincipals] {
 
   /** This method defines the main mapping logic
    *

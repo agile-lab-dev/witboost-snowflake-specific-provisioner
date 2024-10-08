@@ -8,7 +8,7 @@ import it.agilelab.datamesh.snowflakespecificprovisioner.api.dto.SnowflakeOutput
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants
 import it.agilelab.datamesh.snowflakespecificprovisioner.model.ComponentDescriptor.{OutputPort, StorageArea}
 import it.agilelab.datamesh.snowflakespecificprovisioner.model._
-import it.agilelab.datamesh.snowflakespecificprovisioner.principalsmapper.PrincipalsMapper
+import it.agilelab.datamesh.snowflakespecificprovisioner.principalsmapper.{PrincipalsMapper, SnowflakePrincipals}
 import it.agilelab.datamesh.snowflakespecificprovisioner.schema.OperationType.{
   ASSIGN_ROLE,
   CREATE_DB,
@@ -42,7 +42,7 @@ class SnowflakeManager(
     queryBuilder: QueryHelper,
     snowflakeTableInformationHelper: SnowflakeTableInformationHelper,
     reverseProvisioning: ReverseProvisioning,
-    principalsMapper: PrincipalsMapper[String]
+    principalsMapper: PrincipalsMapper[SnowflakePrincipals]
 ) extends LazyLogging {
 
   val provisionInfoHelper = new ProvisionInfoHelper(RealApplicationConfiguration)
@@ -90,7 +90,7 @@ class SnowflakeManager(
     } yield Some(ProvisioningStatus(
       ProvisioningStatusEnums.StatusEnum.COMPLETED,
       "Provisioning completed",
-      Some(Info(publicInfo = SnowflakeOutputPortDetailsDto.encode(outputProvisioningInfo), privateInfo = "")),
+      Some(Info(publicInfo = SnowflakeOutputPortDetailsDto.encode(outputProvisioningInfo), privateInfo = Json.obj())),
       None
     ))
   }
@@ -116,7 +116,7 @@ class SnowflakeManager(
   def updateAclOutputPort(
       descriptor: ProvisioningRequestDescriptor,
       refs: Seq[String]
-  ): Either[SnowflakeError, Seq[String]] = {
+  ): Either[SnowflakeError, Seq[SnowflakePrincipals]] = {
     logger.info("Starting executing executeUpdateAcl for users: {}...", refs.mkString(", "))
     for {
       _                    <- upsertRole(descriptor)
@@ -266,7 +266,7 @@ class SnowflakeManager(
   def executeUpdateAcl(
       descriptor: ProvisioningRequestDescriptor,
       refs: Seq[String]
-  ): Either[SnowflakeError, Seq[String]] = {
+  ): Either[SnowflakeError, Seq[SnowflakePrincipals]] = {
     logger.info("Starting executing executeUpdateAcl for users: {}", refs.mkString(", "))
     descriptor.getComponentToProvision match {
       case Some(component) => component match {
