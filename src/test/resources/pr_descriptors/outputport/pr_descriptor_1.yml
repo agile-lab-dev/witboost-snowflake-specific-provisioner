@@ -58,4 +58,30 @@ dataProduct:
             labelType: Manual
             state: Confirmed
             value: valore di prova
+    - id: domain:marketing.nonSnowflakeComponent.1
+      name: nonSnowflakeComponent
+      fullyQualifiedName: Non Snowflake Component
+      description: Non Snowflake Component
+      kind: outputport
+      owners:
+        - group:bigdata
+      infrastructureTemplateId: urn:dmb:itm:cdp-aws-s3:1.0.0
+      useCaseTemplateId: urn:dmb:utm:template-id-1:1.0.0
+      dependsOn: [ ]
+      platform: CDP_AWS
+      technology: CDP_S3
+      storageType: SQL
+      dataContract:
+        schema:
+          - name: id
+            dataType: TEXT
+            constraint: PRIMARY_KEY
+          - name: name
+            dataType: TEXT
+          - name: phone
+            dataType: NUMBER
+            constraint: NOT_NULL
+      tags: [ ]
+      specific:
+        bucketName: a_value
 componentIdToProvision: domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1

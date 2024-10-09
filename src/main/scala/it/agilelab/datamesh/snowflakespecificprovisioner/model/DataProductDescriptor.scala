@@ -1,5 +1,6 @@
 package it.agilelab.datamesh.snowflakespecificprovisioner.model
 
+import io.circe.syntax.EncoderOps
 import io.circe.yaml.parser
 import io.circe.{HCursor, Json}
 import it.agilelab.datamesh.snowflakespecificprovisioner.common.Constants
@@ -20,7 +21,7 @@ final case class DataProductDescriptor(
     domain: String,
     dataProductOwner: String,
     header: Json,
-    components: List[ComponentDescriptor]
+    components: List[Json]
 ) extends YamlPrinter {
 
   override def toString: String = s"${printAsYaml(toJson)}"
@@ -29,6 +30,29 @@ final case class DataProductDescriptor(
 
   def getName: Either[ParseError, String] = header.hcursor.downField(Constants.NAME_FIELD).as[String].left
     .map(_ => ParseError(Some(header.toString), Some(Constants.NAME_FIELD), List(s"cannot parse Data Product name")))
+
+  def getComponentToProvision(componentId: String): Either[ParseError, ComponentDescriptor] = components
+    .find(component =>
+      component.hcursor.downField(Constants.ID_FIELD).as[String] match {
+        case Left(_)   => false
+        case Right(id) => componentId.equals(id)
+      }
+    ).toRight(ParseError(
+      Some(components.asJson.toString),
+      Some(Constants.ID_FIELD),
+      List(s"Cannot find component to provision with id '$componentId'"),
+      solutions = List("Check that the component to provision is present on the descriptor and it's well-formed")
+    )).flatMap(c =>
+      ComponentDescriptor(c).left.map {
+        case e: ParseError => e
+        case e             => ParseError(
+            Some(components.asJson.toString),
+            None,
+            List(e.getMessage),
+            solutions = List("Check if the component is well-formed and contains the required fields!")
+          )
+      }
+    )
 }
 
 object DataProductDescriptor {
@@ -51,30 +75,11 @@ object DataProductDescriptor {
         ))
     }
 
-  private def getComponentsDescriptor(header: Json): Either[ParseError, List[ComponentDescriptor]] = {
+  private def getComponentsDescriptor(header: Json): Either[ParseError, List[Json]] = {
     val componentsHCursor = header.hcursor.downField(Constants.COMPONENTS_FIELD)
-    componentsHCursor.values.map(_.toList)
-  } match {
-    case None           => Left(ParseError(
-        Some(header.toString),
-        Some(Constants.DATA_PRODUCT_FIELD),
-        List(s"cannot parse Data Product components")
-      ))
-    case Some(jsonList) =>
-      val result               = jsonList.map(c => ComponentDescriptor(c))
-      val (errorList, success) = result.partitionMap {
-        case Left(error: ParseError) => Left(error)
-        case Left(throwable)         => Left(ParseError(None, None, List(throwable.getMessage)))
-        case Right(value)            => Right(value)
-      }
-      if (errorList.nonEmpty) {
-        Left(ParseError(
-          errorList.flatMap(_.input).headOption,
-          None,
-          errorList.flatMap(_.problems),
-          solutions = List("Check if the component is well-formed and contains the required fields!")
-        ))
-      } else { Right(success) }
+    componentsHCursor.values.map(_.toList).toRight(
+      ParseError(Some(header.toString), Some(Constants.COMPONENTS_FIELD), List(s"cannot parse Data Product components"))
+    )
   }
 
   private def getDomain(header: Json): Either[ParseError, String] = header.hcursor.downField("domain").as[String].left

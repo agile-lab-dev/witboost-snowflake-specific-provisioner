@@ -87,7 +87,7 @@ object ComponentDescriptor {
           List(s"The inputs provided as part of $id are not conforming to the required pattern!")
         ))
       case workload: Workload                                           => Right(workload)
-      case _ => Left(ParseError(Some("Invalid Component type!")))
+      case _ => Left(ParseError(problems = List("Invalid Component type!")))
     }
 
   private def matchPattern(inputString: String): Boolean = {

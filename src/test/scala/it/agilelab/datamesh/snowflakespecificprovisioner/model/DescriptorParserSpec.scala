@@ -58,7 +58,8 @@ class DescriptorParserSpec extends AnyFlatSpec {
 
       val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_1_missing_specific.yml")
 
-      val dp = ProvisioningRequestDescriptor(yaml)
+      val dp = ProvisioningRequestDescriptor(yaml).toOption.get.dataProduct
+        .getComponentToProvision("domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1")
 
       dp.left.value.problems should
         contain("Failed to decode OutputPort: Missing required field: DownField(specific): DownField(specific)")
@@ -97,7 +98,8 @@ class DescriptorParserSpec extends AnyFlatSpec {
 
     val yaml = getTestResourceAsString("pr_descriptors/storage/pr_descriptor_12_sql_injected_field.yml")
 
-    val prDescr = ProvisioningRequestDescriptor(yaml)
+    val prDescr = ProvisioningRequestDescriptor(yaml).toOption.get.dataProduct
+      .getComponentToProvision("domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1")
 
     prDescr.left.value.problems should contain(
       "The inputs provided as part of domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1 are not conforming to the required pattern!"
@@ -108,7 +110,8 @@ class DescriptorParserSpec extends AnyFlatSpec {
 
     val yaml = getTestResourceAsString("pr_descriptors/outputport/pr_descriptor_12_sql_injected_table_name.yml")
 
-    val prDescr = ProvisioningRequestDescriptor(yaml)
+    val prDescr = ProvisioningRequestDescriptor(yaml).toOption.get.dataProduct
+      .getComponentToProvision("domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1")
 
     prDescr.left.value.problems should contain(
       "The inputs provided as part of domain:marketing.Marketing-Invoice-S3-Ingestion-Data-1.1 are not conforming to the required pattern!"
